@@ -1,5 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:fintrack_core/fintrack_core.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 
 /// Perfil do utilizador neste dispositivo.
 class Profile {

@@ -32,12 +32,10 @@ final financeProvider = FutureProvider.autoDispose<FinanceData>((ref) async {
   if (store == null) {
     return FinanceData(accounts: const [], categories: const [], movements: const []);
   }
-  final results = await Future.wait([store.accounts(), store.categories(), store.movements()]);
-  return FinanceData(
-    accounts: results[0] as List<Account>,
-    categories: results[1] as List<Category>,
-    movements: results[2] as List<Movement>,
-  );
+  final accounts = await store.accounts();
+  final categories = await store.categories();
+  final movements = await store.movements();
+  return FinanceData(accounts: accounts, categories: categories, movements: movements);
 });
 
 /// Operações de escrita no livro-razão. Validam com o motor antes de gravar.
