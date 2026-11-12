@@ -14,7 +14,8 @@ class KeystoreSecretStore implements SecretStore {
   const KeystoreSecretStore();
 
   static const _storage = FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    // Um erro de leitura nunca apaga o PIN: o utilizador decide repor.
+    aOptions: AndroidOptions(resetOnError: false),
     iOptions: IOSOptions(
       accessibility: KeychainAccessibility.unlocked_this_device,
     ),

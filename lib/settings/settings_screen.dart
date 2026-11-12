@@ -97,7 +97,9 @@ class SettingsScreen extends ConsumerWidget {
                 BiometricSetup.unavailable =>
                   'Este telemóvel não tem biometria configurada. '
                       'Registe uma impressão digital ou o rosto nas definições do telemóvel.',
-                BiometricSetup.failed => 'Não foi possível ativar a biometria.',
+                BiometricSetup.failed =>
+                  'Não foi possível ativar. Confirme que tem uma impressão digital '
+                      'ou o rosto registados nas definições do telemóvel.',
                 BiometricSetup.wrongPin => 'PIN incorreto.',
               };
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));

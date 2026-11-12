@@ -14,7 +14,7 @@ App de gestão e inteligência financeira pessoal (Android e iOS, Flutter), cons
   - `Movement`: entrada, saída e transferência própria (com valor enviado e recebido)
   - `Ledger`: livro-razão imutável — saldos, totais do período, validação, estornos, duplicados
   - testes de propriedades: transferências não alteram o consolidado; recalcular dá sempre o mesmo
-- `lib/security/`: PIN (Argon2id + AES-256-GCM), **biometria** (chave guardada no Keystore/Keychain com autenticação biométrica obrigatória), bloqueio automático, modo discreto
+- `lib/security/`: PIN (Argon2id + AES-256-GCM), **biometria** (chave no Keystore/Keychain com biometria forte obrigatória, via `flutter_secure_storage`), bloqueio automático, modo discreto
 - `lib/data/`: base SQLCipher (AES-256). Gatilhos impedem alterar ou apagar movimentos; cada um só pode ser estornado uma vez
 - `lib/finance/`: novo movimento, correção (estorno + novo registo), anulação, histórico com pesquisa e filtros
 - `lib/home/`: Início (saldo disponível, entradas e saídas do mês, contas, recentes), Movimentos, Contas

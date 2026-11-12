@@ -1,5 +1,5 @@
-import 'package:biometric_storage/biometric_storage.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Resultado de uma tentativa de desbloqueio por biometria.
 sealed class BiometricResult {
@@ -11,7 +11,8 @@ class BiometricKey extends BiometricResult {
   final Uint8List dataKey;
 }
 
-/// O utilizador cancelou ou escolheu usar o PIN.
+/// O utilizador cancelou, escolheu usar o PIN ou a biometria está
+/// temporariamente bloqueada pelo sistema.
 class BiometricCancelled extends BiometricResult {
   const BiometricCancelled();
 }
@@ -23,10 +24,10 @@ class BiometricInvalidated extends BiometricResult {
 
 /// Guarda uma cópia da chave de dados protegida pela biometria do telemóvel.
 ///
-/// A cópia fica no Android Keystore / iOS Keychain com autenticação
-/// biométrica obrigatória em cada leitura: sem impressão digital ou rosto,
-/// nem o próprio app a consegue ler. Se as biometrias do telemóvel mudarem,
-/// a chave é invalidada pelo sistema e volta a ser preciso o PIN.
+/// A cópia fica cifrada com uma chave do Android Keystore / iOS Keychain que
+/// exige autenticação biométrica forte em cada leitura: sem impressão digital
+/// ou rosto, nem o próprio app a consegue ler. Se as biometrias do telemóvel
+/// mudarem, o sistema invalida a chave e volta a ser preciso o PIN.
 abstract interface class BiometricKeyStore {
   Future<bool> isAvailable();
   Future<void> save(Uint8List dataKey);
@@ -37,66 +38,67 @@ abstract interface class BiometricKeyStore {
 class DeviceBiometricKeyStore implements BiometricKeyStore {
   const DeviceBiometricKeyStore();
 
-  static const _name = 'fintrack_data_key';
+  static const _key = 'ft.bio.dataKey';
 
-  static const _prompt = PromptInfo(
-    androidPromptInfo: AndroidPromptInfo(
-      title: 'Desbloquear o FINTRACK',
-      subtitle: 'Use a impressão digital ou o rosto',
-      negativeButton: 'Usar PIN',
-      confirmationRequired: false,
+  static const _storage = FlutterSecureStorage(
+    aOptions: AndroidOptions.biometric(
+      // Cancelar a impressão digital conta como erro: nunca apagar por isso.
+      resetOnError: false,
+      enforceBiometrics: true,
+      requireBiometricsPerOperation: true,
+      biometricType: AndroidBiometricType.strongBiometricOnly,
+      storageNamespace: 'fintrack_biometric',
+      biometricPromptTitle: 'Desbloquear o FINTRACK',
+      biometricPromptSubtitle: 'Use a impressão digital ou o rosto',
+      biometricPromptNegativeButton: 'Usar PIN',
     ),
-    iosPromptInfo: IosPromptInfo(
-      saveTitle: 'Ativar o desbloqueio do FINTRACK',
-      accessTitle: 'Desbloquear o FINTRACK',
+    iOptions: IOSOptions(
+      accountName: 'fintrack_biometric',
+      accessibility: KeychainAccessibility.unlocked_this_device,
+      accessControlFlags: [AccessControlFlag.biometryCurrentSet],
     ),
   );
 
-  Future<BiometricStorageFile> _file() => BiometricStorage().getStorage(
-        _name,
-        options: StorageFileInitOptions(),
-        promptInfo: _prompt,
-      );
-
+  /// A disponibilidade real só se sabe ao gravar: sem biometria registada,
+  /// [save] falha e a ativação é recusada.
   @override
-  Future<bool> isAvailable() async {
-    try {
-      return await BiometricStorage().canAuthenticate() == CanAuthenticateResponse.success;
-    } catch (_) {
-      return false;
-    }
-  }
+  Future<bool> isAvailable() async => true;
 
   @override
   Future<void> save(Uint8List dataKey) async {
     final hex = [for (final b in dataKey) b.toRadixString(16).padLeft(2, '0')].join();
-    await (await _file()).write(hex);
+    await _storage.write(key: _key, value: hex);
   }
 
   @override
   Future<BiometricResult> load() async {
     try {
-      final hex = await (await _file()).read();
+      final hex = await _storage.read(key: _key);
       if (hex == null || hex.length != 64) return const BiometricInvalidated();
       return BiometricKey(Uint8List.fromList([
         for (var i = 0; i < hex.length; i += 2) int.parse(hex.substring(i, i + 2), radix: 16),
       ]));
-    } on AuthException catch (e) {
-      if (e.code == AuthExceptionCode.userCanceled ||
-          e.code == AuthExceptionCode.canceled ||
-          e.code == AuthExceptionCode.timeout) {
-        return const BiometricCancelled();
-      }
-      return const BiometricInvalidated();
-    } catch (_) {
-      return const BiometricInvalidated();
+    } catch (e) {
+      return isCancellation(e.toString())
+          ? const BiometricCancelled()
+          : const BiometricInvalidated();
     }
+  }
+
+  /// Erros do pedido biométrico (cancelar, "Usar PIN", bloqueio temporário)
+  /// não invalidam a chave; o resto (ex.: chave invalidada pelo sistema) sim.
+  @visibleForTesting
+  static bool isCancellation(String error) {
+    final e = error.toLowerCase();
+    return e.contains('biometric authentication error') ||
+        e.contains('cancel') ||
+        e.contains('-128');
   }
 
   @override
   Future<void> clear() async {
     try {
-      await (await _file()).delete();
+      await _storage.delete(key: _key);
     } catch (_) {
       // Nada guardado ou chave já invalidada: não há o que apagar.
     }
