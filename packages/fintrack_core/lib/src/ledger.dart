@@ -266,4 +266,42 @@ class Ledger {
       createdAt: createdAt,
     );
   }
+
+  // --- Contas -----------------------------------------------------------------
+
+  /// A conta tem algum registo no livro-razão (como origem ou destino).
+  bool hasMovements(String accountId) =>
+      movements.any((m) => m.accountId == accountId || m.toAccountId == accountId);
+
+  bool hasCommitments(String accountId) => commitments.any((c) => c.accountId == accountId);
+
+  /// Apagar só sem movimentos nem compromissos: o histórico nunca muda.
+  bool canDelete(String accountId) =>
+      !hasMovements(accountId) && !hasCommitments(accountId) && _otherOpen(accountId);
+
+  /// O saldo inicial só se corrige enquanto não houver movimentos.
+  bool canEditOpening(String accountId) => !hasMovements(accountId);
+
+  /// Arquivar exige que não fiquem compromissos pendentes nessa conta e que
+  /// reste pelo menos uma conta ativa.
+  bool canArchive(String accountId) =>
+      _otherOpen(accountId) && !pending().any((c) => c.accountId == accountId);
+
+  bool _otherOpen(String accountId) =>
+      accounts.values.any((a) => a.id != accountId && !a.archived);
+
+  // --- Importações ------------------------------------------------------------
+
+  /// Lotes de importação com registos ainda em vigor, do mais recente.
+  Map<String, List<Movement>> importBatches() {
+    final batches = <String, List<Movement>>{};
+    for (final m in movements) {
+      final b = m.batchId;
+      if (b == null || m.isReversal || isReversed(m.id)) continue;
+      (batches[b] ??= []).add(m);
+    }
+    final ordered = batches.entries.toList()
+      ..sort((a, b) => b.value.first.createdAt.compareTo(a.value.first.createdAt));
+    return {for (final e in ordered) e.key: e.value};
+  }
 }

@@ -8,6 +8,7 @@ export 'src/commitment.dart';
 export 'src/csv.dart';
 export 'src/currency.dart';
 export 'src/ids.dart';
+export 'src/importer.dart';
 export 'src/ledger.dart';
 export 'src/lockout_policy.dart';
 export 'src/money.dart';

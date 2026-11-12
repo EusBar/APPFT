@@ -22,6 +22,13 @@ abstract interface class LocalStore {
 
   Future<void> addAccount(Account account);
 
+  /// Altera os dados de uma conta (nome, instituição, arquivo...). As regras
+  /// (ex.: saldo inicial só sem movimentos) validam-se antes, no motor.
+  Future<void> updateAccount(Account account);
+
+  /// Apaga uma conta sem movimentos nem compromissos.
+  Future<void> deleteAccount(String id);
+
   Future<List<Category>> categories();
 
   /// Todos os registos do livro-razão, estornos incluídos.
@@ -91,6 +98,21 @@ class MemoryLocalStore implements LocalStore, LocalStoreFactory {
 
   @override
   Future<void> addAccount(Account account) async => stored.add(account);
+
+  @override
+  Future<void> updateAccount(Account account) async {
+    final i = stored.indexWhere((a) => a.id == account.id);
+    if (i < 0) throw StateError('Conta desconhecida');
+    stored[i] = account;
+  }
+
+  @override
+  Future<void> deleteAccount(String id) async {
+    final used = ledger.any((m) => m.accountId == id || m.toAccountId == id) ||
+        commitmentsById.values.any((c) => c.accountId == id);
+    if (used) throw StateError('Conta com histórico');
+    stored.removeWhere((a) => a.id == id);
+  }
 
   @override
   Future<List<Category>> categories() async => Category.defaults;

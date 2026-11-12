@@ -16,6 +16,7 @@ import '../planning/commitments_view.dart';
 import '../security/session.dart';
 import '../settings/settings_screen.dart';
 import 'account_form.dart';
+import 'account_sheet.dart';
 import 'month_flow_card.dart';
 import 'tips.dart';
 
@@ -411,6 +412,7 @@ class _AccountRow extends StatelessWidget {
         semanticsLabel: discreet ? 'Valor oculto' : null,
         style: theme.textTheme.titleSmall?.copyWith(fontFeatures: ftAmountFeatures),
       ),
+      onTap: () => showAccountSheet(context, a, data),
     );
   }
 }
@@ -429,6 +431,14 @@ class _AccountsView extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(FtSpace.lg, FtSpace.sm, FtSpace.lg, 96),
       children: [
         for (final a in data.openAccounts) _AccountRow(account: a, data: data, discreet: discreet),
+        if (data.archivedAccounts.isNotEmpty)
+          ExpansionTile(
+            tilePadding: const EdgeInsets.symmetric(horizontal: FtSpace.xs),
+            title: Text('Arquivadas (${data.archivedAccounts.length})', style: theme.textTheme.titleSmall),
+            children: [
+              for (final a in data.archivedAccounts) _AccountRow(account: a, data: data, discreet: discreet),
+            ],
+          ),
         const SizedBox(height: FtSpace.lg),
         GlassCard(
           padding: const EdgeInsets.all(FtSpace.md),

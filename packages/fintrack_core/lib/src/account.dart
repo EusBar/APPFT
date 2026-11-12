@@ -63,6 +63,27 @@ class Account {
 
   Currency get currency => openingBalance.currency;
 
+  Account copyWith({
+    AccountType? type,
+    String? name,
+    String? institution,
+    bool clearInstitution = false,
+    Money? openingBalance,
+    DateTime? startDate,
+    bool? includeInAvailable,
+    bool? archived,
+  }) =>
+      Account(
+        id: id,
+        type: type ?? this.type,
+        name: name ?? this.name,
+        institution: clearInstitution ? null : institution ?? this.institution,
+        openingBalance: openingBalance ?? this.openingBalance,
+        startDate: startDate ?? this.startDate,
+        includeInAvailable: includeInAvailable ?? this.includeInAvailable,
+        archived: archived ?? this.archived,
+      );
+
   static String _requireName(String name) {
     final clean = NameRules.clean(name);
     if (clean == null) {

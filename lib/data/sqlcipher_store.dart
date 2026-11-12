@@ -14,7 +14,7 @@ class SqlCipherStoreFactory implements LocalStoreFactory {
   const SqlCipherStoreFactory();
 
   static const _fileName = 'fintrack.db';
-  static const _version = 3;
+  static const _version = 4;
 
   Future<String> _path() async => p.join(await getDatabasesPath(), _fileName);
 
@@ -30,7 +30,7 @@ class SqlCipherStoreFactory implements LocalStoreFactory {
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
       onCreate: (db, version) async {
         final batch = db.batch();
-        for (final statement in [..._schemaV1, ..._schemaV2, ..._schemaV3]) {
+        for (final statement in [..._schemaV1, ..._schemaV2, ..._schemaV3, ..._schemaV4]) {
           batch.execute(statement);
         }
         _seedCategories(batch);
@@ -46,6 +46,11 @@ class SqlCipherStoreFactory implements LocalStoreFactory {
         }
         if (from < 3) {
           for (final statement in _schemaV3) {
+            batch.execute(statement);
+          }
+        }
+        if (from < 4) {
+          for (final statement in _schemaV4) {
             batch.execute(statement);
           }
         }
@@ -132,6 +137,13 @@ class SqlCipherStoreFactory implements LocalStoreFactory {
     'CREATE INDEX commitments_due ON commitments(due_date)',
   ];
 
+  /// Etapa 1 do Bloco A: lote de importação (para anular uma importação
+  /// inteira com estornos). Acrescentar uma coluna não altera registos.
+  static const _schemaV4 = [
+    'ALTER TABLE movements ADD COLUMN batch_id TEXT',
+    'CREATE INDEX movements_batch ON movements(batch_id)',
+  ];
+
   static const _schemaV1 = [
     '''
     CREATE TABLE profile (
@@ -194,6 +206,37 @@ class _SqlCipherStore implements LocalStore {
   @override
   Future<void> addAccount(Account account) async {
     await _db.insert('accounts', _accountRow(account));
+  }
+
+  @override
+  Future<void> updateAccount(Account account) async {
+    await _db.update(
+      'accounts',
+      {
+        'type': account.type.code,
+        'name': account.name,
+        'institution': account.institution,
+        'opening_minor': account.openingBalance.minor,
+        'start_date': _date(account.startDate),
+        'include_available': account.includeInAvailable ? 1 : 0,
+        'archived': account.archived ? 1 : 0,
+      },
+      where: 'id = ?',
+      whereArgs: [account.id],
+    );
+  }
+
+  @override
+  Future<void> deleteAccount(String id) {
+    return _db.transaction((txn) async {
+      final used = await txn.rawQuery(
+        'SELECT (SELECT COUNT(*) FROM movements WHERE account_id = ?1 OR to_account_id = ?1) '
+        '+ (SELECT COUNT(*) FROM commitments WHERE account_id = ?1) AS n',
+        [id],
+      );
+      if ((used.first['n'] as int? ?? 0) > 0) throw StateError('Conta com histórico');
+      await txn.delete('accounts', where: 'id = ?', whereArgs: [id]);
+    });
   }
 
   @override
@@ -318,6 +361,7 @@ class _SqlCipherStore implements LocalStore {
         'origin': m.origin.code,
         'reverses_id': m.reverses,
         'replaces_id': m.replaces,
+        'batch_id': m.batchId,
         'created_at': m.createdAt.millisecondsSinceEpoch,
       };
 
@@ -340,6 +384,7 @@ class _SqlCipherStore implements LocalStore {
       origin: MovementOrigin.fromCode(r['origin']! as String),
       reverses: r['reverses_id'] as String?,
       replaces: r['replaces_id'] as String?,
+      batchId: r['batch_id'] as String?,
       createdAt: DateTime.fromMillisecondsSinceEpoch(r['created_at']! as int),
     );
   }

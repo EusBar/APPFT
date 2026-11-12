@@ -243,6 +243,34 @@ void main() {
     expect(find.text('RESUMO · AOA'), findsOneWidget);
   });
 
+  testWidgets('contas: corrigir o saldo inicial e apagar uma conta sem histórico', (tester) async {
+    await setUpUser(tester);
+    await tester.tap(find.byIcon(Icons.account_balance_wallet_outlined));
+    await tester.pumpAndSettle();
+
+    // Corrigir o saldo inicial (ainda sem movimentos).
+    await tester.tap(find.text('Conta à ordem'));
+    await tester.pumpAndSettle();
+    await tapText(tester, 'Editar ou corrigir saldo inicial');
+    await tester.enterText(find.byKey(const Key('account-balance')), '150 000');
+    await tapText(tester, 'Guardar alterações');
+    expect(data.stored.single.openingBalance, const Money(15000000, Currency.aoa));
+
+    // Uma segunda conta, criada por engano, pode ser apagada.
+    await tester.tap(find.text('Nova conta'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('account-name')), 'Carteira errada');
+    await tapText(tester, 'Guardar conta');
+    expect(data.stored, hasLength(2));
+    await tester.tap(find.text('Carteira errada'));
+    await tester.pumpAndSettle();
+    await tapText(tester, 'Apagar conta');
+    await tester.tap(find.widgetWithText(FilledButton, 'Apagar'));
+    await tester.pumpAndSettle();
+    expect(data.stored, hasLength(1));
+    expect(find.text('Carteira errada'), findsNothing);
+  });
+
   testWidgets('biometria: ativar com PIN e desbloquear sem PIN', (tester) async {
     await setUpUser(tester);
 

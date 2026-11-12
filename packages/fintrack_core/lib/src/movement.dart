@@ -56,6 +56,7 @@ class Movement {
     this.origin = MovementOrigin.manual,
     this.reverses,
     this.replaces,
+    this.batchId,
     required this.createdAt,
   })  : description = description.trim().replaceAll(RegExp(r'\s+'), ' '),
         note = note.trim(),
@@ -118,6 +119,9 @@ class Movement {
 
   /// Se preenchido, este registo corrige [replaces] (que foi estornado).
   final String? replaces;
+
+  /// Lote de importação que criou este registo (para anular a importação).
+  final String? batchId;
   final DateTime createdAt;
 
   bool get isReversal => reverses != null;
@@ -137,6 +141,7 @@ class Movement {
       date: date,
       origin: origin,
       reverses: this.id,
+      batchId: batchId,
       createdAt: createdAt,
     );
   }

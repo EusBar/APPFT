@@ -21,6 +21,7 @@ class FinanceData {
 
   List<Account> get accounts => ledger.accounts.values.toList();
   List<Account> get openAccounts => [for (final a in accounts) if (!a.archived) a];
+  List<Account> get archivedAccounts => [for (final a in accounts) if (a.archived) a];
 
   Category? category(String? id) => id == null ? null : _categoryById[id];
   Account? account(String? id) => id == null ? null : ledger.accounts[id];

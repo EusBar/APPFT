@@ -12,7 +12,15 @@ class AccountForm extends StatefulWidget {
     required this.submitLabel,
     required this.onSubmit,
     this.allowCurrencyChoice = true,
+    this.initial,
+    this.openingEditable = true,
   });
+
+  /// Conta a editar; `null` para uma conta nova.
+  final Account? initial;
+
+  /// O saldo inicial só se corrige enquanto a conta não tiver movimentos.
+  final bool openingEditable;
 
   final Currency defaultCurrency;
   final String submitLabel;
@@ -24,12 +32,16 @@ class AccountForm extends StatefulWidget {
 }
 
 class _AccountFormState extends State<AccountForm> {
-  AccountType _type = AccountType.bank;
-  late Currency _currency = widget.defaultCurrency;
-  final _name = TextEditingController(text: accountTypeDefaultName(AccountType.bank));
-  final _institution = TextEditingController();
-  final _balance = TextEditingController();
-  bool _nameEdited = false;
+  late AccountType _type = widget.initial?.type ?? AccountType.bank;
+  late Currency _currency = widget.initial?.currency ?? widget.defaultCurrency;
+  late final _name = TextEditingController(
+    text: widget.initial?.name ?? accountTypeDefaultName(AccountType.bank),
+  );
+  late final _institution = TextEditingController(text: widget.initial?.institution ?? '');
+  late final _balance = TextEditingController(
+    text: widget.initial?.openingBalance.format(withSymbol: false) ?? '',
+  );
+  late bool _nameEdited = widget.initial != null;
   String? _nameError;
   String? _balanceError;
   bool _busy = false;
@@ -82,14 +94,23 @@ class _AccountFormState extends State<AccountForm> {
 
     setState(() => _busy = true);
     try {
-      await widget.onSubmit(Account(
-        id: newId(),
-        type: _type,
-        name: name,
-        institution: institution,
-        openingBalance: balance,
-        startDate: DateTime.now(),
-      ));
+      final initial = widget.initial;
+      await widget.onSubmit(initial == null
+          ? Account(
+              id: newId(),
+              type: _type,
+              name: name,
+              institution: institution,
+              openingBalance: balance,
+              startDate: DateTime.now(),
+            )
+          : initial.copyWith(
+              type: _type,
+              name: name,
+              institution: institution,
+              clearInstitution: institution == null || institution.trim().isEmpty,
+              openingBalance: widget.openingEditable ? balance : initial.openingBalance,
+            ));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -143,7 +164,7 @@ class _AccountFormState extends State<AccountForm> {
             ),
           ),
         ],
-        if (widget.allowCurrencyChoice) ...[
+        if (widget.allowCurrencyChoice && widget.initial == null) ...[
           const SizedBox(height: FtSpace.sm),
           DropdownButtonFormField<Currency>(
             initialValue: _currency,
@@ -162,13 +183,17 @@ class _AccountFormState extends State<AccountForm> {
         TextField(
           key: const Key('account-balance'),
           controller: _balance,
+          enabled: widget.openingEditable,
           keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
           style: const TextStyle(fontFeatures: ftAmountFeatures),
           decoration: InputDecoration(
             labelText: 'Saldo atual',
             hintText: '0,00',
             suffixText: _currency.symbol,
-            helperText: 'Quanto tem hoje nesta conta. Pode deixar a zero.',
+            helperText: widget.openingEditable
+                ? 'Quanto tem hoje nesta conta. Pode deixar a zero.'
+                : 'Já há movimentos: o saldo inicial fica fixo para não alterar o histórico.',
+            helperMaxLines: 2,
             errorText: _balanceError,
             border: const OutlineInputBorder(),
           ),
