@@ -198,6 +198,38 @@ void main() {
     expect(find.text('100\u00A0000,00\u00A0Kz'), findsWidgets);
   });
 
+  testWidgets('compromisso: criar, pagar uma vez e descontar no saldo', (tester) async {
+    await setUpUser(tester);
+
+    await tester.tap(find.text('Planear'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Compromisso'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('commitment-description')), 'Renda');
+    await tester.enterText(find.byKey(const Key('commitment-amount')), '30 000');
+    await tapText(tester, 'Habitação');
+    await tapText(tester, 'Guardar compromisso');
+
+    expect(data.commitmentsById, hasLength(1));
+    expect(data.ledger, isEmpty, reason: 'um compromisso não é um movimento');
+    expect(find.text('Renda'), findsOneWidget);
+
+    await tester.tap(find.text('Renda'));
+    await tester.pumpAndSettle();
+    await tapText(tester, 'Marcar como pago');
+    await tester.tap(find.text('Confirmar pagamento'));
+    await tester.pumpAndSettle();
+
+    expect(data.ledger, hasLength(1));
+    expect(data.ledger.single.origin, MovementOrigin.commitment);
+    expect(data.commitmentsById.values.single.status, CommitmentStatus.paid);
+    expect(find.text('Marcar como pago'), findsNothing);
+
+    await tester.tap(find.text('Início'));
+    await tester.pumpAndSettle();
+    expect(find.text('70\u00A0000,00\u00A0Kz'), findsWidgets);
+  });
+
   testWidgets('biometria: ativar com PIN e desbloquear sem PIN', (tester) async {
     await setUpUser(tester);
 

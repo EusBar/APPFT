@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/local_store.dart';
 import '../design/backdrop.dart';
+import '../design/country_photos.dart';
 import '../design/labels.dart';
 import '../design/tokens.dart';
 import '../home/account_form.dart';
@@ -85,10 +86,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         ),
     };
 
-    final image = switch (_step) {
-      0 => FtImage.savings,
-      1 => FtImage.shopping,
-      _ => FtImage.payment,
+    // No passo da moeda, o fundo mostra uma maravilha da região escolhida.
+    final countryPhoto = photosFor(_currency).firstOrNull?.asset;
+    final asset = switch (_step) {
+      0 => FtImage.savings.asset,
+      1 => countryPhoto ?? FtImage.shopping.asset,
+      _ => FtImage.payment.asset,
     };
 
     return PopScope(
@@ -96,8 +99,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop && _step > 0) setState(() => _step--);
       },
-      child: FtBackdrop(
-        image: image,
+      child: FtBackdrop.asset(
+        asset: asset,
         child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
@@ -207,7 +210,7 @@ class _CurrencyStep extends StatelessWidget {
                 RadioListTile<Currency>(
                   value: c,
                   title: Text(currencyName(c)),
-                  subtitle: Text('${c.code} · ${c.symbol}'),
+                  subtitle: Text('${c.code} · ${c.symbol} · ${currencyRegion(c)}'),
                 ),
             ],
           ),

@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
-import 'tokens.dart';
+import 'package:flutter/material.dart';
 
 /// Fotografias de fundo (Unsplash, licença Unsplash), já desfocadas e
 /// reduzidas para pesar pouco em telemóveis de gama baixa.
@@ -19,14 +19,22 @@ enum FtImage {
 /// Fundo premium: fotografia desfocada sob um véu da cor de fundo do tema,
 /// mais denso em baixo para o texto e os valores se lerem sempre bem.
 class FtBackdrop extends StatelessWidget {
-  const FtBackdrop({
+  FtBackdrop({
     super.key,
-    required this.image,
+    required FtImage image,
+    required this.child,
+    this.strength = FtBackdropStrength.normal,
+  }) : asset = image.asset;
+
+  /// Fundo com qualquer fotografia dos assets (ex.: ponto turístico).
+  const FtBackdrop.asset({
+    super.key,
+    required this.asset,
     required this.child,
     this.strength = FtBackdropStrength.normal,
   });
 
-  final FtImage image;
+  final String asset;
   final Widget child;
   final FtBackdropStrength strength;
 
@@ -42,10 +50,10 @@ class FtBackdrop extends StatelessWidget {
       children: [
         ColoredBox(color: surface),
         AnimatedSwitcher(
-          duration: FtMotion.slow,
+          duration: const Duration(milliseconds: 1200),
           child: Image.asset(
-            image.asset,
-            key: ValueKey(image),
+            asset,
+            key: ValueKey(asset),
             fit: BoxFit.cover,
             width: double.infinity,
             height: double.infinity,
@@ -79,4 +87,69 @@ enum FtBackdropStrength {
 
   /// Ecrãs com muitos valores: a imagem fica só sugerida.
   subtle,
+}
+
+/// Fundo que passa devagar por várias fotografias, com fundido suave.
+class RotatingBackdrop extends StatefulWidget {
+  const RotatingBackdrop({
+    super.key,
+    required this.assets,
+    required this.child,
+    this.fallback = FtImage.analytics,
+    this.strength = FtBackdropStrength.subtle,
+    this.interval = const Duration(seconds: 20),
+  });
+
+  final List<String> assets;
+  final FtImage fallback;
+  final Widget child;
+  final FtBackdropStrength strength;
+  final Duration interval;
+
+  @override
+  State<RotatingBackdrop> createState() => _RotatingBackdropState();
+}
+
+class _RotatingBackdropState extends State<RotatingBackdrop> {
+  int _index = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _restart();
+  }
+
+  @override
+  void didUpdateWidget(RotatingBackdrop old) {
+    super.didUpdateWidget(old);
+    if (old.assets.join() != widget.assets.join()) {
+      _index = 0;
+      _restart();
+    }
+  }
+
+  void _restart() {
+    _timer?.cancel();
+    if (widget.assets.length < 2) return;
+    _timer = Timer.periodic(widget.interval, (_) {
+      if (mounted) setState(() => _index = (_index + 1) % widget.assets.length);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final assets = widget.assets;
+    return FtBackdrop.asset(
+      asset: assets.isEmpty ? widget.fallback.asset : assets[_index % assets.length],
+      strength: widget.strength,
+      child: widget.child,
+    );
+  }
 }

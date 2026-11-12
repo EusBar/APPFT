@@ -11,7 +11,8 @@ class FinanceData {
     required List<Account> accounts,
     required this.categories,
     required List<Movement> movements,
-  }) : ledger = Ledger(accounts, movements);
+    List<Commitment> commitments = const [],
+  }) : ledger = Ledger(accounts, movements, commitments: commitments);
 
   final List<Category> categories;
   final Ledger ledger;
@@ -35,7 +36,13 @@ final financeProvider = FutureProvider.autoDispose<FinanceData>((ref) async {
   final accounts = await store.accounts();
   final categories = await store.categories();
   final movements = await store.movements();
-  return FinanceData(accounts: accounts, categories: categories, movements: movements);
+  final commitments = await store.commitments();
+  return FinanceData(
+    accounts: accounts,
+    categories: categories,
+    movements: movements,
+    commitments: commitments,
+  );
 });
 
 /// Operações de escrita no livro-razão. Validam com o motor antes de gravar.
@@ -64,6 +71,31 @@ class LedgerWriter {
     return null;
   }
 
+  /// Cria ou altera um compromisso pendente.
+  Future<MovementIssue?> saveCommitment(Commitment c) async {
+    final issue = _data.ledger.checkCommitment(c, category: _data.category(c.categoryId));
+    if (issue != null) return issue;
+    await _store.saveCommitment(c);
+    return null;
+  }
+
+  /// Paga um compromisso: gera a saída ligada, na data indicada.
+  Future<MovementIssue?> payCommitment(Commitment c, {required DateTime date}) async {
+    final ledger = _data.ledger;
+    if (ledger.statusOf(c) != CommitmentStatus.pending) return MovementIssue.notPending;
+    final payment = ledger.paymentFor(c, id: newId(), date: date, createdAt: DateTime.now());
+    final issue = ledger.check(payment, today: DateTime.now());
+    if (issue != null) return issue;
+    await _store.payCommitment(c, payment);
+    return null;
+  }
+
+  Future<MovementIssue?> cancelCommitment(Commitment c) async {
+    if (_data.ledger.statusOf(c) != CommitmentStatus.pending) return MovementIssue.notPending;
+    await _store.cancelCommitment(c.id);
+    return null;
+  }
+
   /// Anula um movimento com um estorno.
   Future<MovementIssue?> cancel(Movement original) async {
     final r = original.reversal(id: newId(), createdAt: DateTime.now());
@@ -85,4 +117,6 @@ String movementIssueMessage(MovementIssue issue) => switch (issue) {
       MovementIssue.unknownOriginal => 'O movimento original já não existe.',
       MovementIssue.alreadyReversed => 'Este movimento já foi anulado.',
       MovementIssue.reverseOfReversal => 'Um estorno não pode ser anulado.',
+      MovementIssue.wrongCategory => 'Escolha uma categoria de despesa.',
+      MovementIssue.notPending => 'Este compromisso já não está pendente.',
     };

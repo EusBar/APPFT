@@ -31,6 +31,16 @@ abstract interface class LocalStore {
   /// Os registos nunca se alteram nem se apagam.
   Future<void> append(List<Movement> records);
 
+  Future<List<Commitment>> commitments();
+
+  /// Cria ou altera um compromisso pendente.
+  Future<void> saveCommitment(Commitment commitment);
+
+  /// Grava a saída e marca o compromisso como pago, numa única transação.
+  Future<void> payCommitment(Commitment commitment, Movement payment);
+
+  Future<void> cancelCommitment(String id);
+
   Future<void> close();
 }
 
@@ -48,6 +58,7 @@ class MemoryLocalStore implements LocalStore, LocalStoreFactory {
   Profile? profile;
   final List<Account> stored = [];
   final List<Movement> ledger = [];
+  final Map<String, Commitment> commitmentsById = {};
   Uint8List? openedWith;
   bool closed = false;
 
@@ -63,6 +74,7 @@ class MemoryLocalStore implements LocalStore, LocalStoreFactory {
     profile = null;
     stored.clear();
     ledger.clear();
+    commitmentsById.clear();
   }
 
   @override
@@ -93,6 +105,42 @@ class MemoryLocalStore implements LocalStore, LocalStoreFactory {
       if (!ids.add(r.id)) throw StateError('Registo duplicado: ${r.id}');
     }
     ledger.addAll(records);
+  }
+
+  @override
+  Future<List<Commitment>> commitments() async => commitmentsById.values.toList();
+
+  @override
+  Future<void> saveCommitment(Commitment commitment) async {
+    if (commitment.status != CommitmentStatus.pending) {
+      throw StateError('Só se gravam compromissos pendentes');
+    }
+    commitmentsById[commitment.id] = commitment;
+  }
+
+  @override
+  Future<void> payCommitment(Commitment commitment, Movement payment) async {
+    await append([payment]);
+    commitmentsById[commitment.id] =
+        commitment.copyWith(status: CommitmentStatus.paid, paidMovementId: payment.id);
+  }
+
+  @override
+  Future<void> cancelCommitment(String id) async {
+    final c = commitmentsById[id];
+    if (c != null) {
+      commitmentsById[id] = Commitment(
+        id: c.id,
+        accountId: c.accountId,
+        amount: c.amount,
+        categoryId: c.categoryId,
+        description: c.description,
+        note: c.note,
+        dueDate: c.dueDate,
+        status: CommitmentStatus.cancelled,
+        createdAt: c.createdAt,
+      );
+    }
   }
 
   @override

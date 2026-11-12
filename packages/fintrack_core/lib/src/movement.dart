@@ -24,6 +24,9 @@ enum MovementOrigin {
   import('import'),
   recurring('recurring'),
   smartEntry('smart_entry'),
+
+  /// Saída gerada ao pagar um compromisso.
+  commitment('commitment'),
   ai('ai');
 
   const MovementOrigin(this.code);

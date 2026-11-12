@@ -4,6 +4,7 @@ library;
 export 'src/account.dart';
 export 'src/auto_lock.dart';
 export 'src/category.dart';
+export 'src/commitment.dart';
 export 'src/currency.dart';
 export 'src/ids.dart';
 export 'src/ledger.dart';

@@ -14,7 +14,7 @@ class SqlCipherStoreFactory implements LocalStoreFactory {
   const SqlCipherStoreFactory();
 
   static const _fileName = 'fintrack.db';
-  static const _version = 2;
+  static const _version = 3;
 
   Future<String> _path() async => p.join(await getDatabasesPath(), _fileName);
 
@@ -30,7 +30,7 @@ class SqlCipherStoreFactory implements LocalStoreFactory {
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
       onCreate: (db, version) async {
         final batch = db.batch();
-        for (final statement in [..._schemaV1, ..._schemaV2]) {
+        for (final statement in [..._schemaV1, ..._schemaV2, ..._schemaV3]) {
           batch.execute(statement);
         }
         _seedCategories(batch);
@@ -43,6 +43,11 @@ class SqlCipherStoreFactory implements LocalStoreFactory {
             batch.execute(statement);
           }
           _seedCategories(batch);
+        }
+        if (from < 3) {
+          for (final statement in _schemaV3) {
+            batch.execute(statement);
+          }
         }
         await batch.commit(noResult: true);
       },
@@ -105,6 +110,26 @@ class SqlCipherStoreFactory implements LocalStoreFactory {
     '''
     CREATE TRIGGER movements_immutable_delete BEFORE DELETE ON movements
     BEGIN SELECT RAISE(ABORT, 'Livro-razão imutável: corrija com um estorno'); END''',
+  ];
+
+  /// Fase 3: compromissos. O estado muda (pendente, pago, cancelado), mas o
+  /// pagamento é sempre uma saída no livro-razão imutável.
+  static const _schemaV3 = [
+    '''
+    CREATE TABLE commitments (
+      id TEXT PRIMARY KEY,
+      account_id TEXT NOT NULL REFERENCES accounts(id),
+      amount_minor INTEGER NOT NULL CHECK (amount_minor > 0),
+      currency TEXT NOT NULL,
+      category_id TEXT NOT NULL REFERENCES categories(id),
+      description TEXT NOT NULL,
+      note TEXT NOT NULL,
+      due_date TEXT NOT NULL,
+      status TEXT NOT NULL,
+      paid_movement_id TEXT UNIQUE REFERENCES movements(id),
+      created_at INTEGER NOT NULL
+    )''',
+    'CREATE INDEX commitments_due ON commitments(due_date)',
   ];
 
   static const _schemaV1 = [
@@ -203,6 +228,75 @@ class _SqlCipherStore implements LocalStore {
         );
       }
     });
+  }
+
+  @override
+  Future<List<Commitment>> commitments() async {
+    final rows = await _db.query('commitments', orderBy: 'due_date, created_at');
+    return [
+      for (final r in rows)
+        Commitment(
+          id: r['id']! as String,
+          accountId: r['account_id']! as String,
+          amount: Money(r['amount_minor']! as int, Currency.fromCode(r['currency']! as String)),
+          categoryId: r['category_id']! as String,
+          description: r['description']! as String,
+          note: r['note']! as String,
+          dueDate: DateTime.parse(r['due_date']! as String),
+          status: CommitmentStatus.fromCode(r['status']! as String),
+          paidMovementId: r['paid_movement_id'] as String?,
+          createdAt: DateTime.fromMillisecondsSinceEpoch(r['created_at']! as int),
+        ),
+    ];
+  }
+
+  static Map<String, Object?> _commitmentRow(Commitment c) => {
+        'id': c.id,
+        'account_id': c.accountId,
+        'amount_minor': c.amount.minor,
+        'currency': c.amount.currency.code,
+        'category_id': c.categoryId,
+        'description': c.description,
+        'note': c.note,
+        'due_date': _date(c.dueDate),
+        'status': c.status.code,
+        'paid_movement_id': c.paidMovementId,
+        'created_at': c.createdAt.millisecondsSinceEpoch,
+      };
+
+  @override
+  Future<void> saveCommitment(Commitment commitment) async {
+    if (commitment.status != CommitmentStatus.pending) {
+      throw StateError('Só se gravam compromissos pendentes');
+    }
+    await _db.insert(
+      'commitments',
+      _commitmentRow(commitment),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  @override
+  Future<void> payCommitment(Commitment commitment, Movement payment) {
+    return _db.transaction((txn) async {
+      await txn.insert('movements', _movementRow(payment), conflictAlgorithm: ConflictAlgorithm.abort);
+      await txn.update(
+        'commitments',
+        {'status': CommitmentStatus.paid.code, 'paid_movement_id': payment.id},
+        where: 'id = ?',
+        whereArgs: [commitment.id],
+      );
+    });
+  }
+
+  @override
+  Future<void> cancelCommitment(String id) async {
+    await _db.update(
+      'commitments',
+      {'status': CommitmentStatus.cancelled.code, 'paid_movement_id': null},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   @override

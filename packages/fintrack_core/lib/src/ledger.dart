@@ -1,4 +1,6 @@
 import 'account.dart';
+import 'category.dart';
+import 'commitment.dart';
 import 'currency.dart';
 import 'money.dart';
 import 'movement.dart';
@@ -13,6 +15,8 @@ enum MovementIssue {
   unknownOriginal,
   alreadyReversed,
   reverseOfReversal,
+  wrongCategory,
+  notPending,
 }
 
 /// Totais de um período, por moeda. Transferências próprias não contam.
@@ -28,18 +32,26 @@ class PeriodTotals {
 /// Os saldos calculam-se sempre a partir do saldo inicial e de todos os
 /// registos, estornos incluídos; recalcular dá sempre o mesmo resultado.
 class Ledger {
-  Ledger(Iterable<Account> accounts, Iterable<Movement> movements)
-      : accounts = {for (final a in accounts) a.id: a},
-        movements = List.unmodifiable(movements) {
+  Ledger(
+    Iterable<Account> accounts,
+    Iterable<Movement> movements, {
+    Iterable<Commitment> commitments = const [],
+  })  : accounts = {for (final a in accounts) a.id: a},
+        movements = List.unmodifiable(movements),
+        commitments = List.unmodifiable(commitments) {
     for (final m in this.movements) {
       final original = m.reverses;
       if (original != null) _reversedBy[original] = m.id;
+      final replaced = m.replaces;
+      if (replaced != null) _replacedBy[replaced] = m.id;
     }
   }
 
   final Map<String, Account> accounts;
   final List<Movement> movements;
+  final List<Commitment> commitments;
   final Map<String, String> _reversedBy = {};
+  final Map<String, String> _replacedBy = {};
 
   bool isReversed(String id) => _reversedBy.containsKey(id);
 
@@ -160,5 +172,98 @@ class Ledger {
       if (a == b || a.isEmpty || b.isEmpty) return other;
     }
     return null;
+  }
+
+  // --- Compromissos ---------------------------------------------------------
+
+  /// Movimento em vigor que paga [c], seguindo correções (estorno + novo
+  /// registo). `null` se nunca foi pago ou se o pagamento foi anulado.
+  Movement? paymentOf(Commitment c) {
+    var id = c.paidMovementId;
+    while (id != null && isReversed(id)) {
+      id = _replacedBy[id];
+    }
+    return id == null ? null : byId(id);
+  }
+
+  /// Estado efetivo. Um pagamento anulado devolve o compromisso a pendente,
+  /// sem escrever nada: o livro-razão é a fonte da verdade.
+  CommitmentStatus statusOf(Commitment c) {
+    if (c.status != CommitmentStatus.paid) return c.status;
+    return paymentOf(c) == null ? CommitmentStatus.pending : CommitmentStatus.paid;
+  }
+
+  /// Compromissos pendentes, por data prevista.
+  List<Commitment> pending() {
+    final list = [
+      for (final c in commitments)
+        if (statusOf(c) == CommitmentStatus.pending) c,
+    ];
+    list.sort((a, b) {
+      final byDate = a.dueDate.compareTo(b.dueDate);
+      return byDate != 0 ? byDate : a.createdAt.compareTo(b.createdAt);
+    });
+    return list;
+  }
+
+  /// Total dos compromissos pendentes que reduzem o disponível até ao fim do
+  /// horizonte (os atrasados incluídos), por moeda.
+  Map<Currency, Money> committed({required DateTime today, required AvailableHorizon horizon}) {
+    final end = horizon.end(today);
+    final totals = <Currency, Money>{};
+    for (final c in pending()) {
+      if (c.dueDate.isAfter(end)) continue;
+      final account = accounts[c.accountId];
+      if (account == null || account.archived || !account.includeInAvailable) continue;
+      final cur = c.amount.currency;
+      totals[cur] = (totals[cur] ?? Money.zero(cur)) + c.amount;
+    }
+    return totals;
+  }
+
+  /// Saldo disponível = saldos das contas incluídas − compromissos pendentes
+  /// até ao horizonte. Por moeda: sem taxa de câmbio, nunca se misturam.
+  Map<Currency, Money> available({required DateTime today, required AvailableHorizon horizon}) {
+    final totals = Map.of(balances(availableOnly: true));
+    committed(today: today, horizon: horizon).forEach((cur, amount) {
+      totals[cur] = (totals[cur] ?? Money.zero(cur)) - amount;
+    });
+    return totals;
+  }
+
+  /// Valida um compromisso novo ou editado (só pendentes se editam).
+  MovementIssue? checkCommitment(Commitment c, {Category? category}) {
+    final account = accounts[c.accountId];
+    if (account == null) return MovementIssue.unknownAccount;
+    if (account.archived) return MovementIssue.archivedAccount;
+    if (c.amount.currency != account.currency) return MovementIssue.currencyMismatch;
+    if (category != null && category.kind != CategoryKind.expense) {
+      return MovementIssue.wrongCategory;
+    }
+    if (c.status != CommitmentStatus.pending) return MovementIssue.notPending;
+    return null;
+  }
+
+  /// Saída que paga [c] na data [date]. Valida-se com [check] antes de gravar.
+  Movement paymentFor(
+    Commitment c, {
+    required String id,
+    required DateTime date,
+    required DateTime createdAt,
+  }) {
+    if (statusOf(c) != CommitmentStatus.pending) {
+      throw StateError('Só se pagam compromissos pendentes');
+    }
+    return Movement(
+      id: id,
+      kind: MovementKind.expense,
+      accountId: c.accountId,
+      amount: c.amount,
+      categoryId: c.categoryId,
+      description: c.description,
+      date: date,
+      origin: MovementOrigin.commitment,
+      createdAt: createdAt,
+    );
   }
 }

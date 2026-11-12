@@ -2,6 +2,7 @@ import 'package:fintrack_core/fintrack_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../design/country_photos.dart';
 import '../design/labels.dart';
 import '../design/tokens.dart';
 import '../security/pin_pad.dart';
@@ -46,6 +47,7 @@ class SettingsScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final autoLock = ref.watch(sessionProvider.select((s) => s.autoLock));
     final biometric = ref.watch(sessionProvider.select((s) => s.biometricEnabled));
+    final horizon = ref.watch(sessionProvider.select((s) => s.horizon));
     final controller = ref.read(sessionProvider.notifier);
 
     return Scaffold(
@@ -104,6 +106,41 @@ class SettingsScreen extends ConsumerWidget {
               };
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
             },
+          ),
+          const Divider(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(FtSpace.md, FtSpace.md, FtSpace.md, FtSpace.xs),
+            child: Text('Horizonte do saldo disponível', style: theme.textTheme.titleSmall),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: FtSpace.md),
+            child: Text(
+              'Compromissos pendentes até esta data reduzem o saldo disponível.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          RadioGroup<AvailableHorizon>(
+            groupValue: horizon,
+            onChanged: (h) {
+              if (h != null) controller.setHorizon(h);
+            },
+            child: Column(
+              children: [
+                for (final h in AvailableHorizon.values)
+                  RadioListTile<AvailableHorizon>(value: h, title: Text(horizonLabel(h))),
+              ],
+            ),
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.photo_library_outlined),
+            title: const Text('Créditos das fotografias'),
+            subtitle: const Text('Unsplash · Licença Unsplash'),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const _PhotoCreditsScreen()),
+            ),
           ),
           const Divider(),
           const ListTile(
@@ -185,6 +222,44 @@ class _EnableBiometricScreenState extends ConsumerState<_EnableBiometricScreen> 
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PhotoCreditsScreen extends StatelessWidget {
+  const _PhotoCreditsScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Créditos das fotografias')),
+      body: ListView(
+        padding: const EdgeInsets.all(FtSpace.md),
+        children: [
+          Text(
+            'Fotografias do Unsplash, usadas ao abrigo da Licença Unsplash, '
+            'desfocadas e reduzidas para o fundo do FINTRACK.',
+            style: theme.textTheme.bodySmall,
+          ),
+          for (final entry in countryPhotos.entries) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: FtSpace.lg, bottom: FtSpace.xs),
+              child: Text(
+                '${currencyRegion(Currency.fromCode(entry.key))} · ${entry.key}',
+                style: theme.textTheme.titleSmall,
+              ),
+            ),
+            for (final p in entry.value)
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                title: Text(p.place),
+                subtitle: Text('Unsplash · imagem ${p.unsplashId}'),
+              ),
+          ],
+        ],
       ),
     );
   }

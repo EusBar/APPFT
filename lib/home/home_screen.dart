@@ -3,17 +3,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../design/backdrop.dart';
+import '../design/country_photos.dart';
 import '../design/labels.dart';
 import '../design/tokens.dart';
 import '../finance/finance_data.dart';
 import '../finance/movement_form_screen.dart';
 import '../finance/movement_tile.dart';
 import '../finance/movements_screen.dart';
+import '../planning/commitment_form_screen.dart';
+import '../planning/commitments_view.dart';
 import '../security/session.dart';
 import '../settings/settings_screen.dart';
 import 'account_form.dart';
+import 'month_flow_card.dart';
+import 'tips.dart';
 
-/// Ecrã principal com navegação inferior: Início, Movimentos, Contas.
+/// Ecrã principal: Início, Movimentos, Planear, Contas.
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -24,23 +29,39 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _tab = 0;
 
+  Widget? _fab(FinanceData? data, Currency? mainCurrency) {
+    if (data == null) return null;
+    final (String, Widget Function()) action = switch (_tab) {
+      2 => ('Compromisso', () => CommitmentFormScreen(data: data)),
+      3 => ('Nova conta', () => NewAccountScreen(defaultCurrency: mainCurrency ?? Currency.aoa)),
+      _ => ('Movimento', () => MovementFormScreen(data: data)),
+    };
+    final (label, open) = action;
+    return FloatingActionButton.extended(
+      heroTag: 'fab',
+      onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => open())),
+      icon: const Icon(Icons.add),
+      label: Text(label),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(sessionProvider);
     final controller = ref.read(sessionProvider.notifier);
     final finance = ref.watch(financeProvider);
     final profile = session.profile;
-    final data = finance.valueOrNull;
+    final mainCurrency = profile?.mainCurrency ?? Currency.aoa;
 
     final title = switch (_tab) {
       0 => profile == null ? 'FINTRACK' : 'Olá, ${profile.name.split(' ').first}',
       1 => 'Movimentos',
+      2 => 'Planear',
       _ => 'Contas',
     };
 
-    return FtBackdrop(
-      image: FtImage.analytics,
-      strength: FtBackdropStrength.subtle,
+    return RotatingBackdrop(
+      assets: [for (final p in photosFor(mainCurrency)) p.asset],
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
@@ -65,28 +86,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ],
         ),
-        floatingActionButton: data == null
-            ? null
-            : _tab == 2
-                ? FloatingActionButton.extended(
-                    heroTag: 'fab',
-                    onPressed: profile == null
-                        ? null
-                        : () => Navigator.of(context).push(MaterialPageRoute<void>(
-                              builder: (_) =>
-                                  NewAccountScreen(defaultCurrency: profile.mainCurrency),
-                            )),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Nova conta'),
-                  )
-                : FloatingActionButton.extended(
-                    heroTag: 'fab',
-                    onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                      builder: (_) => MovementFormScreen(data: data),
-                    )),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Movimento'),
-                  ),
+        floatingActionButton: _fab(finance.valueOrNull, profile?.mainCurrency),
         bottomNavigationBar: NavigationBar(
           backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
           selectedIndex: _tab,
@@ -103,6 +103,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               label: 'Movimentos',
             ),
             NavigationDestination(
+              icon: Icon(Icons.event_note_outlined),
+              selectedIcon: Icon(Icons.event_note),
+              label: 'Planear',
+            ),
+            NavigationDestination(
               icon: Icon(Icons.account_balance_wallet_outlined),
               selectedIcon: Icon(Icons.account_balance_wallet),
               label: 'Contas',
@@ -116,11 +121,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             0 => _Overview(
                 data: data,
                 discreet: session.discreet,
-                mainCurrency: profile?.mainCurrency ?? Currency.aoa,
+                horizon: session.horizon,
+                mainCurrency: mainCurrency,
                 onToggleDiscreet: controller.toggleDiscreet,
-                onSeeAll: () => setState(() => _tab = 1),
+                onSeeMovements: () => setState(() => _tab = 1),
+                onSeePlanning: () => setState(() => _tab = 2),
               ),
             1 => MovementsView(data: data, discreet: session.discreet),
+            2 => CommitmentsView(data: data, discreet: session.discreet),
             _ => _AccountsView(data: data, discreet: session.discreet),
           },
         ),
@@ -130,10 +138,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 }
 
 /// Cartão translúcido sobre o fundo fotográfico.
-class _GlassCard extends StatelessWidget {
-  const _GlassCard({required this.child});
+class GlassCard extends StatelessWidget {
+  const GlassCard({super.key, required this.child, this.padding = const EdgeInsets.all(FtSpace.lg)});
 
   final Widget child;
+  final EdgeInsets padding;
 
   @override
   Widget build(BuildContext context) {
@@ -144,123 +153,90 @@ class _GlassCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(FtRadius.lg),
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.35)),
       ),
-      padding: const EdgeInsets.all(FtSpace.lg),
+      padding: padding,
       child: child,
     );
   }
 }
 
-class _Overview extends StatelessWidget {
+class _Overview extends ConsumerWidget {
   const _Overview({
     required this.data,
     required this.discreet,
+    required this.horizon,
     required this.mainCurrency,
     required this.onToggleDiscreet,
-    required this.onSeeAll,
+    required this.onSeeMovements,
+    required this.onSeePlanning,
   });
 
   final FinanceData data;
   final bool discreet;
+  final AvailableHorizon horizon;
   final Currency mainCurrency;
   final VoidCallback onToggleDiscreet;
-  final VoidCallback onSeeAll;
+  final VoidCallback onSeeMovements;
+  final VoidCallback onSeePlanning;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final colors = theme.extension<FtColors>()!;
     final ledger = data.ledger;
-    final available = ledger.balances(availableOnly: true);
-    final total = ledger.balances();
     final now = DateTime.now();
-    final month = ledger.totals(DateTime(now.year, now.month), now);
+    final today = DateTime(now.year, now.month, now.day);
     final recent = ledger.active().take(5).toList();
-    final currencies = {...month.income.keys, ...month.expense.keys};
-    if (currencies.isEmpty) currencies.add(mainCurrency);
+    final soon = [
+      for (final c in ledger.pending())
+        if (!c.dueDate.isAfter(today.add(const Duration(days: 7)))) c,
+    ];
+    final hasCommitments = ledger.pending().isNotEmpty;
+
+    Widget sectionHeader(String text, {VoidCallback? onMore}) => Row(
+          children: [
+            Expanded(child: Text(text, style: theme.textTheme.titleMedium)),
+            if (onMore != null) TextButton(onPressed: onMore, child: const Text('Ver todos')),
+          ],
+        );
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(FtSpace.lg, FtSpace.sm, FtSpace.lg, 96),
       children: [
-        _GlassCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Saldo disponível', style: theme.textTheme.labelLarge),
-              const SizedBox(height: FtSpace.xs),
-              GestureDetector(
-                onDoubleTap: onToggleDiscreet,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (available.isEmpty)
-                      _Amount(Money.zero(mainCurrency), discreet: discreet, large: true),
-                    for (final m in available.values)
-                      _Amount(m, discreet: discreet, large: true),
-                  ],
-                ),
-              ),
-              if (total.length != available.length ||
-                  total.entries.any((e) => available[e.key] != e.value)) ...[
-                const SizedBox(height: FtSpace.sm),
-                Text('Total em todas as contas', style: theme.textTheme.labelMedium),
-                for (final m in total.values) _Amount(m, discreet: discreet),
-              ],
-            ],
-          ),
+        _AvailableCard(
+          ledger: ledger,
+          today: today,
+          horizon: horizon,
+          mainCurrency: mainCurrency,
+          discreet: discreet,
+          onToggleDiscreet: onToggleDiscreet,
         ),
-        const SizedBox(height: FtSpace.md),
-        _GlassCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Este mês · ${monthName(now.month)}',
-                style: theme.textTheme.labelLarge,
+        const SizedBox(height: FtSpace.sm),
+        const TipsTicker(),
+        const SizedBox(height: FtSpace.sm),
+        MonthFlowCard(ledger: ledger, today: today, mainCurrency: mainCurrency, discreet: discreet),
+        if (hasCommitments) ...[
+          const SizedBox(height: FtSpace.lg),
+          sectionHeader('Próximos compromissos', onMore: onSeePlanning),
+          if (soon.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: FtSpace.sm),
+              child: Text(
+                'Nada a pagar nos próximos 7 dias.',
+                style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
-              const SizedBox(height: FtSpace.sm),
-              for (final c in currencies)
-                Row(
-                  children: [
-                    Expanded(
-                      child: _Flow(
-                        label: 'Entradas',
-                        icon: Icons.south_west,
-                        color: colors.income,
-                        text: amountText(month.income[c] ?? Money.zero(c), discreet: discreet),
-                      ),
-                    ),
-                    Expanded(
-                      child: _Flow(
-                        label: 'Saídas',
-                        icon: Icons.north_east,
-                        color: colors.expense,
-                        text: amountText(month.expense[c] ?? Money.zero(c), discreet: discreet),
-                      ),
-                    ),
-                  ],
-                ),
-            ],
-          ),
-        ),
+            ),
+          for (final c in soon.take(3)) CommitmentTile(commitment: c, data: data, discreet: discreet),
+        ],
         const SizedBox(height: FtSpace.lg),
-        Text('Contas', style: theme.textTheme.titleMedium),
-        const SizedBox(height: FtSpace.xs),
+        sectionHeader('Contas'),
         for (final a in data.openAccounts) _AccountRow(account: a, data: data, discreet: discreet),
         const SizedBox(height: FtSpace.lg),
-        Row(
-          children: [
-            Expanded(child: Text('Movimentos recentes', style: theme.textTheme.titleMedium)),
-            if (recent.isNotEmpty) TextButton(onPressed: onSeeAll, child: const Text('Ver todos')),
-          ],
-        ),
+        sectionHeader('Movimentos recentes', onMore: recent.isEmpty ? null : onSeeMovements),
         if (recent.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: FtSpace.md),
             child: Text(
               'Registe a primeira despesa ou entrada no botão "Movimento".',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
           ),
         for (final m in recent) MovementTile(movement: m, data: data, discreet: discreet),
@@ -269,42 +245,137 @@ class _Overview extends StatelessWidget {
   }
 }
 
-class _Flow extends StatelessWidget {
-  const _Flow({required this.label, required this.icon, required this.color, required this.text});
+class _AvailableCard extends ConsumerWidget {
+  const _AvailableCard({
+    required this.ledger,
+    required this.today,
+    required this.horizon,
+    required this.mainCurrency,
+    required this.discreet,
+    required this.onToggleDiscreet,
+  });
 
-  final String label;
-  final IconData icon;
-  final Color color;
-  final String text;
+  final Ledger ledger;
+  final DateTime today;
+  final AvailableHorizon horizon;
+  final Currency mainCurrency;
+  final bool discreet;
+  final VoidCallback onToggleDiscreet;
+
+  Future<void> _chooseHorizon(BuildContext context, WidgetRef ref) async {
+    final picked = await showModalBottomSheet<AvailableHorizon>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(
+              title: Text('Horizonte do saldo disponível'),
+              subtitle: Text('Compromissos pendentes até esta data reduzem o disponível.'),
+            ),
+            for (final h in AvailableHorizon.values)
+              ListTile(
+                leading: Icon(h == horizon ? Icons.radio_button_checked : Icons.radio_button_off),
+                title: Text(horizonLabel(h)),
+                trailing: Text('até ${shortDate(h.end(today))}'),
+                onTap: () => Navigator.of(context).pop(h),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked != null) await ref.read(sessionProvider.notifier).setHorizon(picked);
+  }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    return Row(
-      children: [
-        Icon(icon, size: 18, color: color),
-        const SizedBox(width: FtSpace.xs),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final colors = theme.extension<FtColors>()!;
+    final available = ledger.available(today: today, horizon: horizon);
+    final committed = ledger.committed(today: today, horizon: horizon);
+    final booked = ledger.balances(availableOnly: true);
+    final total = ledger.balances();
+    final muted = theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
+    String money(Money m) => amountText(m, discreet: discreet);
+
+    return GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Text(label, style: theme.textTheme.labelMedium),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  text,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontFeatures: ftAmountFeatures,
-                    color: color,
-                    fontWeight: FontWeight.w600,
+              Expanded(child: Text('Saldo disponível', style: theme.textTheme.labelLarge)),
+              InkWell(
+                borderRadius: BorderRadius.circular(FtRadius.lg),
+                onTap: () => _chooseHorizon(context, ref),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: FtSpace.sm, vertical: FtSpace.xs),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(FtRadius.lg),
+                    border: Border.all(color: theme.colorScheme.outlineVariant),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('até ${shortDate(horizon.end(today))}', style: theme.textTheme.labelMedium),
+                      const Icon(Icons.expand_more, size: 16),
+                    ],
                   ),
                 ),
               ),
             ],
           ),
-        ),
-      ],
+          const SizedBox(height: FtSpace.xs),
+          GestureDetector(
+            onDoubleTap: onToggleDiscreet,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (available.isEmpty) _Amount(Money.zero(mainCurrency), discreet: discreet, large: true),
+                for (final m in available.values) _Amount(m, discreet: discreet, large: true),
+              ],
+            ),
+          ),
+          if (committed.isNotEmpty) ...[
+            const SizedBox(height: FtSpace.sm),
+            for (final cur in committed.keys) ...[
+              _DetailRow(label: 'Saldo contabilístico', value: money(booked[cur] ?? Money.zero(cur)), style: muted),
+              _DetailRow(
+                label: 'Compromissos pendentes',
+                value: discreet ? '••••••' : '−${committed[cur]!.format()}',
+                style: muted?.copyWith(color: colors.commitment),
+              ),
+            ],
+          ],
+          if (total.length != booked.length || total.entries.any((e) => booked[e.key] != e.value)) ...[
+            const SizedBox(height: FtSpace.xs),
+            for (final m in total.values)
+              _DetailRow(label: 'Total em todas as contas', value: money(m), style: muted),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({required this.label, required this.value, this.style});
+
+  final String label;
+  final String value;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: style)),
+          Text(value, style: style?.copyWith(fontFeatures: ftAmountFeatures)),
+        ],
+      ),
     );
   }
 }
@@ -347,15 +418,49 @@ class _AccountsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
     return ListView(
       padding: const EdgeInsets.fromLTRB(FtSpace.lg, FtSpace.sm, FtSpace.lg, 96),
       children: [
         for (final a in data.openAccounts) _AccountRow(account: a, data: data, discreet: discreet),
-        const SizedBox(height: FtSpace.md),
-        Text(
-          'O saldo de cada conta é o saldo inicial mais os movimentos registados. '
-          'A instituição serve só para organizar: o FINTRACK não se liga ao banco.',
-          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+        const SizedBox(height: FtSpace.lg),
+        GlassCard(
+          padding: const EdgeInsets.all(FtSpace.md),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.info_outline, size: 18, color: muted),
+              const SizedBox(width: FtSpace.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'METODOLOGIA',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        letterSpacing: 1.4,
+                        fontWeight: FontWeight.w600,
+                        color: muted,
+                      ),
+                    ),
+                    const SizedBox(height: FtSpace.xs),
+                    Text(
+                      'Saldo contabilístico = saldo de abertura + movimentos lançados no '
+                      'livro-razão, estornos incluídos. Recalculado a partir dos registos '
+                      'originais, nunca editado diretamente.',
+                      style: theme.textTheme.bodySmall?.copyWith(color: muted, height: 1.4),
+                    ),
+                    const SizedBox(height: FtSpace.xs),
+                    Text(
+                      'A instituição é um atributo de organização. O FINTRACK não estabelece '
+                      'ligação a sistemas bancários nem acede a credenciais.',
+                      style: theme.textTheme.bodySmall?.copyWith(color: muted, height: 1.4),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );

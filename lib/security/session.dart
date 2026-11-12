@@ -37,6 +37,7 @@ class SessionState {
     this.autoLock = AutoLockSetting.oneMinute,
     this.profile,
     this.biometricEnabled = false,
+    this.horizon = AvailableHorizon.endOfMonth,
   });
 
   final SessionStatus status;
@@ -53,6 +54,9 @@ class SessionState {
   /// Desbloqueio por impressão digital ou rosto ativado neste telemóvel.
   final bool biometricEnabled;
 
+  /// Até quando os compromissos reduzem o saldo disponível.
+  final AvailableHorizon horizon;
+
   SessionState copyWith({
     SessionStatus? status,
     bool? discreet,
@@ -60,6 +64,7 @@ class SessionState {
     Profile? profile,
     bool clearProfile = false,
     bool? biometricEnabled,
+    AvailableHorizon? horizon,
   }) =>
       SessionState(
         status: status ?? this.status,
@@ -67,6 +72,7 @@ class SessionState {
         autoLock: autoLock ?? this.autoLock,
         profile: clearProfile ? null : profile ?? this.profile,
         biometricEnabled: biometricEnabled ?? this.biometricEnabled,
+        horizon: horizon ?? this.horizon,
       );
 }
 
@@ -77,6 +83,7 @@ final sessionProvider = NotifierProvider<SessionController, SessionState>(
 class SessionController extends Notifier<SessionState> {
   static const _kAutoLock = 'ft.settings.autoLock';
   static const _kBiometric = 'ft.settings.biometric';
+  static const _kHorizon = 'ft.settings.horizon';
 
   LocalStore? _store;
   DateTime? _backgroundedAt;
@@ -103,6 +110,7 @@ class SessionController extends Notifier<SessionState> {
       status: hasPin ? SessionStatus.locked : SessionStatus.needsPin,
       autoLock: autoLock,
       biometricEnabled: biometric,
+      horizon: AvailableHorizon.fromCode(await secrets.read(_kHorizon)),
     );
   }
 
@@ -232,6 +240,11 @@ class SessionController extends Notifier<SessionState> {
     state = state.copyWith(autoLock: setting);
   }
 
+  Future<void> setHorizon(AvailableHorizon horizon) async {
+    await ref.read(secretStoreProvider).write(_kHorizon, horizon.code);
+    state = state.copyWith(horizon: horizon);
+  }
+
   /// Apaga o PIN, a chave e a base de dados deste dispositivo.
   Future<void> resetApp() async {
     final store = _store;
@@ -240,6 +253,7 @@ class SessionController extends Notifier<SessionState> {
     await ref.read(localStoreFactoryProvider).wipe();
     await ref.read(pinVaultProvider).reset();
     await ref.read(secretStoreProvider).delete(_kAutoLock);
+    await ref.read(secretStoreProvider).delete(_kHorizon);
     await ref.read(biometricKeyStoreProvider).clear();
     await ref.read(secretStoreProvider).delete(_kBiometric);
     state = const SessionState(status: SessionStatus.needsPin);

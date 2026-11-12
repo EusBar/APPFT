@@ -91,3 +91,17 @@ String dayLabel(DateTime d, {DateTime? today}) {
   if (day == ref.subtract(const Duration(days: 1))) return 'Ontem';
   return '${d.day} de ${monthName(d.month)} de ${d.year}';
 }
+
+const _monthsShort = [
+  'jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez',
+];
+
+/// "30 nov".
+String shortDate(DateTime d) => '${d.day} ${_monthsShort[d.month - 1]}';
+
+String horizonLabel(AvailableHorizon h) => switch (h) {
+      AvailableHorizon.endOfMonth => 'Até ao fim do mês',
+      AvailableHorizon.days7 => 'Próximos 7 dias',
+      AvailableHorizon.days30 => 'Próximos 30 dias',
+      AvailableHorizon.days90 => 'Próximos 90 dias',
+    };
