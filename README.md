@@ -6,27 +6,32 @@ App de gestão e inteligência financeira pessoal (Android e iOS, Flutter), cons
 
 ## Estado
 
-**Fase 1 — Fundação (v0.2.0)** · ainda por compilar no GitHub Actions
+**Fase 1 — Fundação (v0.3.0)**
 
 - `packages/fintrack_core`: núcleo em Dart puro, sem UI
   - `Money`: valores em inteiros na unidade mínima, formato `1 234 567,89 Kz`
   - `Currency`: AOA, USD, EUR, BRL, GBP, ZAR
-  - `PinPolicy`: recusa PINs triviais (repetidos, sequências, datas)
-  - `LockoutPolicy`: atrasos progressivos e limite de 10 tentativas
-  - `AutoLockPolicy`: bloqueio automático (imediato, 1, 5 ou 15 minutos)
-- `lib/design/tokens.dart`: design system (cores semânticas, espaçamento, raios, animação, temas claro e escuro)
+  - `Account` e `AccountType`: banco, numerário, carteira móvel, cartão, poupança
+  - `Balances`: totais por moeda, sem nunca somar moedas diferentes; poupança fora do disponível
+  - `PinPolicy`, `LockoutPolicy`, `AutoLockPolicy`, `NameRules`, `newId` (UUID v4)
+- `lib/design/`: design system (tokens, cores semânticas, temas claro e escuro) e textos em português
 - `lib/security/`: desbloqueio local
   - `PinVault`: Argon2id + AES-256-GCM; o PIN nunca é guardado; segredos no Keystore/Keychain
   - criação e confirmação do PIN, ecrã de bloqueio com contagem decrescente
-  - bloqueio automático em segundo plano, capa de privacidade, modo discreto
+  - bloqueio automático configurável, capa de privacidade, modo discreto
+- `lib/data/`: base de dados local cifrada com **SQLCipher** (AES-256); a chave de 256 bits só é libertada pelo PIN
+- `lib/onboarding/`: nome, moeda principal e primeira conta, em três passos
+- `lib/home/`: saldo disponível, total e lista de contas; criar novas contas
+- `lib/settings/`: bloqueio automático (imediato, 1, 5 ou 15 min) e apagar tudo
 
 **Limitações conhecidas**
 
 - O limite de tentativas é aplicado por software e usa o relógio do dispositivo; ainda não é imposto por hardware.
 - A capa de privacidade é desenhada pelo Flutter; falta o `FLAG_SECURE` nativo no Android.
 - Sem conta na nuvem, 10 falhas de PIN só se resolvem repondo o app.
+- Ainda não há movimentos: o saldo de cada conta é o saldo inicial.
 
-**A seguir na Fase 1:** base de dados cifrada (SQLCipher), onboarding (nome, moeda, primeira conta), biometria, definições de segurança.
+**A seguir na Fase 1:** biometria. Depois, Fase 2: movimentos (entradas, saídas, transferências) com livro-razão imutável.
 
 ## Compilação
 
