@@ -6,7 +6,7 @@ App de gestão e inteligência financeira pessoal (Android e iOS, Flutter), cons
 
 ## Estado
 
-**Fase 1 — Fundação** ✅ · **Fase 2 — Gestão financeira** ✅ · **Fase 3 — Motor financeiro (v0.5.0)**
+**Fase 1 — Fundação** ✅ · **Fase 2 — Gestão financeira** ✅ · **Fase 3 — Motor financeiro** ✅ · **Fase 4 — Relatórios (v0.6.0)**
 
 - `packages/fintrack_core`: núcleo em Dart puro, sem UI
   - `Money` (inteiros na unidade mínima), `Currency` (AOA, USD, EUR, BRL, GBP, ZAR)
@@ -19,6 +19,8 @@ App de gestão e inteligência financeira pessoal (Android e iOS, Flutter), cons
 - `lib/security/`: PIN (Argon2id + AES-256-GCM), **biometria** (chave no Keystore/Keychain com biometria forte obrigatória, via `flutter_secure_storage`), bloqueio automático, modo discreto
 - `lib/data/`: base SQLCipher (AES-256). Gatilhos impedem alterar ou apagar movimentos; cada um só pode ser estornado uma vez
 - `lib/finance/`: novo movimento, correção (estorno + novo registo), anulação, histórico com pesquisa e filtros
+- `PeriodReport` (núcleo): abertura, entradas, saídas, transferências, fecho, categorias, contas e compromissos pendentes por moeda; `MovementCsv` com proteção contra fórmulas
+- `lib/reports/`: relatório mensal no app, PDF A4 (cabeçalho, resumo, categorias, contas, compromissos, movimentos, paginação) e CSV para Excel, partilhados manualmente
 - `lib/planning/`: compromissos — criar, editar, pagar (gera a saída ligada), cancelar
 - `lib/home/`: Início (saldo disponível com horizonte, dicas rotativas, fluxo do mês, próximos compromissos, contas, recentes), Movimentos, Planear, Contas
 - fundos com pontos turísticos da região da moeda principal (5 por moeda)
@@ -30,9 +32,10 @@ App de gestão e inteligência financeira pessoal (Android e iOS, Flutter), cons
 - O limite de tentativas do PIN é aplicado por software e usa o relógio do dispositivo.
 - Falta o `FLAG_SECURE` nativo no Android (a capa de privacidade é desenhada pelo Flutter).
 - Sem conta na nuvem, 10 falhas de PIN só se resolvem repondo o app.
-- O APK é assinado com uma chave de teste gerada em cada compilação: para atualizar, desinstale a versão anterior (perde os dados de teste).
+- Sem os segredos `FINTRACK_KEYSTORE_*` no GitHub, o APK é assinado com uma chave de teste diferente em cada compilação (para atualizar é preciso desinstalar).
+- Os ficheiros exportados (PDF/CSV) não são cifrados.
 
-**A seguir:** chave de assinatura fixa; gerir categorias e arquivar contas; Fase 4 — dashboard completo, relatórios PDF/CSV e importação.
+**A seguir:** importação CSV/Excel com correspondência de colunas; gerir categorias e arquivar contas; Fase 5 — orçamentos, recorrentes, objetivos e Kixikila.
 
 ## Créditos
 

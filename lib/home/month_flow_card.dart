@@ -45,13 +45,20 @@ class MonthFlowCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'FLUXO DE ${monthName(today.month).toUpperCase()}',
-            style: theme.textTheme.labelSmall?.copyWith(
-              letterSpacing: 1.6,
-              fontWeight: FontWeight.w700,
-              color: scheme.onSurfaceVariant,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'FLUXO DE ${monthName(today.month).toUpperCase()}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    letterSpacing: 1.6,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              Icon(Icons.chevron_right, size: 18, color: scheme.onSurfaceVariant),
+            ],
           ),
           for (final (i, c) in currencies.indexed) ...[
             if (i > 0) const Divider(height: FtSpace.xl),
@@ -187,6 +194,7 @@ class _SplitBar extends StatelessWidget {
     return SizedBox(
       height: height,
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (fi > 0)
             Expanded(

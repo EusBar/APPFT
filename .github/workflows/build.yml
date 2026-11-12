@@ -36,6 +36,26 @@ jobs:
       - name: Configurar Android e iOS (nome, biometria, tema)
         run: tool/configure_platforms.sh
 
+      - name: Assinatura fixa (se os segredos existirem)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.FINTRACK_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.FINTRACK_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.FINTRACK_KEY_ALIAS }}
+        run: |
+          python3 tool/configure_signing.py
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > android/fintrack-upload.jks
+            {
+              echo "storeFile=fintrack-upload.jks"
+              echo "storePassword=$KEYSTORE_PASSWORD"
+              echo "keyAlias=${KEY_ALIAS:-fintrack}"
+              echo "keyPassword=$KEYSTORE_PASSWORD"
+            } > android/key.properties
+            echo "APK assinado com a chave fixa do FINTRACK."
+          else
+            echo "::warning::Sem segredos de assinatura: APK assinado com chave de teste."
+          fi
+
       - name: Dependências
         run: flutter pub get
 

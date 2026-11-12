@@ -50,7 +50,7 @@ class FtBackdrop extends StatelessWidget {
       children: [
         ColoredBox(color: surface),
         AnimatedSwitcher(
-          duration: const Duration(milliseconds: 1200),
+          duration: const Duration(milliseconds: 2500),
           child: Image.asset(
             asset,
             key: ValueKey(asset),
@@ -97,7 +97,7 @@ class RotatingBackdrop extends StatefulWidget {
     required this.child,
     this.fallback = FtImage.analytics,
     this.strength = FtBackdropStrength.subtle,
-    this.interval = const Duration(seconds: 20),
+    this.interval = const Duration(minutes: 2),
   });
 
   final List<String> assets;

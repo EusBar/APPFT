@@ -11,6 +11,7 @@ import '../finance/movement_form_screen.dart';
 import '../finance/movement_tile.dart';
 import '../finance/movements_screen.dart';
 import '../planning/commitment_form_screen.dart';
+import '../reports/report_screen.dart';
 import '../planning/commitments_view.dart';
 import '../security/session.dart';
 import '../settings/settings_screen.dart';
@@ -212,7 +213,12 @@ class _Overview extends ConsumerWidget {
         const SizedBox(height: FtSpace.sm),
         const TipsTicker(),
         const SizedBox(height: FtSpace.sm),
-        MonthFlowCard(ledger: ledger, today: today, mainCurrency: mainCurrency, discreet: discreet),
+        GestureDetector(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => ReportScreen(initialMonth: today)),
+          ),
+          child: MonthFlowCard(ledger: ledger, today: today, mainCurrency: mainCurrency, discreet: discreet),
+        ),
         if (hasCommitments) ...[
           const SizedBox(height: FtSpace.lg),
           sectionHeader('Próximos compromissos', onMore: onSeePlanning),

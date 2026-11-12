@@ -55,7 +55,7 @@ const tips = <Tip>[
 /// Faixa discreta com uma dica que muda sozinha. Tocar avança; tocar longo
 /// mostra todas.
 class TipsTicker extends StatefulWidget {
-  const TipsTicker({super.key, this.interval = const Duration(seconds: 9)});
+  const TipsTicker({super.key, this.interval = const Duration(seconds: 14)});
 
   final Duration interval;
 
@@ -124,54 +124,57 @@ class _TipsTickerState extends State<TipsTicker> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final tip = tips[_index];
-    final muted = theme.colorScheme.onSurfaceVariant;
+    // Discreta: tom apagado, letra pequena, sem cor de destaque.
+    final muted = theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.72);
 
     return Semantics(
       label: 'Dica de ${tipTopicLabel(tip.topic)}: ${tip.text}',
       button: true,
       excludeSemantics: true,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(FtRadius.md),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: _next,
         onLongPress: _showAll,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: FtSpace.sm, horizontal: FtSpace.xs),
+          padding: const EdgeInsets.fromLTRB(FtSpace.xs, FtSpace.xs, FtSpace.xs, FtSpace.xs),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.auto_awesome_outlined, size: 16, color: theme.colorScheme.primary),
+              Padding(
+                padding: const EdgeInsets.only(top: 1),
+                child: Icon(Icons.lightbulb_outline, size: 13, color: muted),
+              ),
               const SizedBox(width: FtSpace.sm),
               Expanded(
+                // Só esvanecimento, lento e suave: a dica nova surge enquanto a
+                // anterior se apaga, sem movimento.
                 child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 450),
-                  transitionBuilder: (child, animation) => FadeTransition(
-                    opacity: animation,
-                    child: SlideTransition(
-                      position: Tween(begin: const Offset(0, 0.25), end: Offset.zero)
-                          .animate(animation),
-                      child: child,
-                    ),
+                  duration: const Duration(milliseconds: 1400),
+                  switchInCurve: Curves.easeInOutCubic,
+                  switchOutCurve: Curves.easeInOutCubic,
+                  layoutBuilder: (current, previous) => Stack(
+                    alignment: Alignment.topLeft,
+                    children: [...previous, if (current != null) current],
                   ),
-                  child: Column(
+                  child: Text.rich(
                     key: ValueKey(_index),
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        tipTopicLabel(tip.topic).toUpperCase(),
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.primary,
-                          letterSpacing: 1.4,
-                          fontWeight: FontWeight.w600,
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: '${tipTopicLabel(tip.topic)}  ·  ',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        tip.text,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(color: muted, height: 1.35),
-                      ),
-                    ],
+                        TextSpan(text: tip.text),
+                      ],
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: muted,
+                      height: 1.45,
+                      letterSpacing: 0.2,
+                      fontWeight: FontWeight.w400,
+                    ),
                   ),
                 ),
               ),

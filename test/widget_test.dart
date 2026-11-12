@@ -235,6 +235,14 @@ void main() {
     expect(find.text('70\u00A0000,00\u00A0Kz'), findsWidgets);
   });
 
+  testWidgets('relatório do mês abre a partir do cartão do fluxo', (tester) async {
+    await setUpUser(tester);
+    await tester.tap(find.textContaining('FLUXO DE'));
+    await tester.pumpAndSettle();
+    expect(find.text('Relatórios'), findsOneWidget);
+    expect(find.text('RESUMO · AOA'), findsOneWidget);
+  });
+
   testWidgets('biometria: ativar com PIN e desbloquear sem PIN', (tester) async {
     await setUpUser(tester);
 

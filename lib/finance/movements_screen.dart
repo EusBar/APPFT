@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../design/labels.dart';
 import '../design/tokens.dart';
+import '../reports/report_screen.dart';
 import 'finance_data.dart';
 import 'movement_tile.dart';
 
@@ -88,6 +89,16 @@ class _MovementsViewState extends State<MovementsView> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(FtSpace.lg, FtSpace.sm, FtSpace.lg, 96),
       children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            icon: const Icon(Icons.insights_outlined, size: 18),
+            label: const Text('Relatórios e exportação'),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const ReportScreen()),
+            ),
+          ),
+        ),
         TextField(
           controller: _search,
           onChanged: (_) => setState(() {}),
