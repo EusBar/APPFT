@@ -54,6 +54,14 @@ void main() {
 
   /// Faz scroll até ao botão antes de tocar (o ecrã de teste é 800x600).
   Future<void> tapText(WidgetTester tester, String text) async {
+    // Listas só constroem o que está perto do ecrã: desliza até encontrar.
+    if (find.text(text).evaluate().isEmpty) {
+      await tester.scrollUntilVisible(
+        find.text(text),
+        150,
+        scrollable: find.byType(Scrollable).first,
+      );
+    }
     await tester.ensureVisible(find.text(text));
     await tester.pumpAndSettle();
     await tester.tap(find.text(text));
