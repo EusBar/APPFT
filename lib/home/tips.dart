@@ -67,6 +67,11 @@ class _TipsTickerState extends State<TipsTicker> {
   // Começa numa dica diferente a cada dia.
   late int _index = DateTime.now().difference(DateTime(2026)).inDays % tips.length;
   Timer? _timer;
+  Timer? _swap;
+  bool _visible = true;
+
+  static const _fadeOut = Duration(milliseconds: 700);
+  static const _fadeIn = Duration(milliseconds: 900);
 
   @override
   void initState() {
@@ -77,11 +82,23 @@ class _TipsTickerState extends State<TipsTicker> {
   @override
   void dispose() {
     _timer?.cancel();
+    _swap?.cancel();
     super.dispose();
   }
 
+  /// Primeiro apaga a dica atual; só depois troca o texto e a faz surgir.
+  /// Nunca há duas dicas visíveis ao mesmo tempo.
   void _next() {
-    if (mounted) setState(() => _index = (_index + 1) % tips.length);
+    if (!mounted || !_visible) return;
+    setState(() => _visible = false);
+    _swap?.cancel();
+    _swap = Timer(_fadeOut, () {
+      if (!mounted) return;
+      setState(() {
+        _index = (_index + 1) % tips.length;
+        _visible = true;
+      });
+    });
   }
 
   void _showAll() {
@@ -146,18 +163,12 @@ class _TipsTickerState extends State<TipsTicker> {
               ),
               const SizedBox(width: FtSpace.sm),
               Expanded(
-                // Só esvanecimento, lento e suave: a dica nova surge enquanto a
-                // anterior se apaga, sem movimento.
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 1400),
-                  switchInCurve: Curves.easeInOutCubic,
-                  switchOutCurve: Curves.easeInOutCubic,
-                  layoutBuilder: (current, previous) => Stack(
-                    alignment: Alignment.topLeft,
-                    children: [...previous, if (current != null) current],
-                  ),
+                // Esvanece até desaparecer; a nova dica surge depois.
+                child: AnimatedOpacity(
+                  opacity: _visible ? 1 : 0,
+                  duration: _visible ? _fadeIn : _fadeOut,
+                  curve: Curves.easeInOutCubic,
                   child: Text.rich(
-                    key: ValueKey(_index),
                     TextSpan(
                       children: [
                         TextSpan(

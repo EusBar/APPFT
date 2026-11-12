@@ -22,6 +22,8 @@ grep -n 'launchMode\|taskAffinity' "$manifest" || true
 gradle=android/app/build.gradle.kts
 sed -i -E 's/minSdk = flutter\.minSdkVersion/minSdk = maxOf(flutter.minSdkVersion, 24)/' "$gradle"
 
+python3 tool/configure_android.py
+
 # --- iOS ---------------------------------------------------------------------
 plist=ios/Runner/Info.plist
 if ! grep -q NSFaceIDUsageDescription "$plist"; then

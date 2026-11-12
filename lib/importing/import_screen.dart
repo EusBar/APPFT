@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../design/labels.dart';
 import '../design/tokens.dart';
 import '../finance/finance_data.dart';
+import '../privacy/consent.dart';
 import '../security/session.dart';
 import 'xlsx_reader.dart';
 
@@ -58,6 +59,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
 
   Future<void> _pick() async {
     setState(() => _error = null);
+    if (!await ensureConsent(context, ref, Consent.files)) return;
     try {
       final files = await FilePicker.pickFiles(
         type: FileType.custom,

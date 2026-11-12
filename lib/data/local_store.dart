@@ -78,6 +78,16 @@ abstract interface class LocalStore {
   Future<List<GoalContribution>> goalContributions();
   Future<void> addGoalContribution(GoalContribution contribution);
 
+  /// Cria ou altera uma categoria (nome, ícone, arquivo).
+  Future<void> saveCategory(Category category);
+
+  Future<List<KixikilaGroup>> kixikilaGroups();
+  Future<void> saveKixikilaGroup(KixikilaGroup group);
+  Future<List<KixikilaRecord>> kixikilaRecords();
+
+  /// Grava o movimento da ronda e a ligação, numa única transação.
+  Future<void> recordKixikila(Movement movement, KixikilaRecord record);
+
   Future<void> close();
 }
 
@@ -99,6 +109,9 @@ class MemoryLocalStore implements LocalStore, LocalStoreFactory {
   final Map<String, Budget> budgetsById = {};
   final Map<String, Goal> goalsById = {};
   final List<GoalContribution> contributions = [];
+  final Map<String, Category> customCategories = {};
+  final Map<String, KixikilaGroup> kixikilaById = {};
+  final List<KixikilaRecord> kixikilaLog = [];
   Uint8List? openedWith;
   bool closed = false;
 
@@ -118,6 +131,9 @@ class MemoryLocalStore implements LocalStore, LocalStoreFactory {
     budgetsById.clear();
     goalsById.clear();
     contributions.clear();
+    customCategories.clear();
+    kixikilaById.clear();
+    kixikilaLog.clear();
   }
 
   @override
@@ -151,7 +167,29 @@ class MemoryLocalStore implements LocalStore, LocalStoreFactory {
   }
 
   @override
-  Future<List<Category>> categories() async => Category.defaults;
+  Future<List<Category>> categories() async => [
+        for (final c in Category.defaults) customCategories[c.id] ?? c,
+        for (final c in customCategories.values)
+          if (!Category.defaults.any((d) => d.id == c.id)) c,
+      ];
+
+  @override
+  Future<void> saveCategory(Category category) async => customCategories[category.id] = category;
+
+  @override
+  Future<List<KixikilaGroup>> kixikilaGroups() async => kixikilaById.values.toList();
+
+  @override
+  Future<void> saveKixikilaGroup(KixikilaGroup group) async => kixikilaById[group.id] = group;
+
+  @override
+  Future<List<KixikilaRecord>> kixikilaRecords() async => List.unmodifiable(kixikilaLog);
+
+  @override
+  Future<void> recordKixikila(Movement movement, KixikilaRecord record) async {
+    await append([movement]);
+    kixikilaLog.add(record);
+  }
 
   @override
   Future<List<Movement>> movements() async => List.unmodifiable(ledger);

@@ -15,11 +15,15 @@ class FinanceData {
     this.budgets = const [],
     this.goals = const [],
     this.contributions = const [],
+    this.kixikilas = const [],
+    this.kixikilaRecords = const [],
   }) : ledger = Ledger(accounts, movements, commitments: commitments);
 
   final List<Budget> budgets;
   final List<Goal> goals;
   final List<GoalContribution> contributions;
+  final List<KixikilaGroup> kixikilas;
+  final List<KixikilaRecord> kixikilaRecords;
 
   /// Sugestões de categoria a partir do histórico (IA local, no aparelho).
   late final CategorySuggester suggester = CategorySuggester(ledger.movements);
@@ -51,6 +55,8 @@ final financeProvider = FutureProvider.autoDispose<FinanceData>((ref) async {
   final budgets = await store.budgets();
   final goals = await store.goals();
   final contributions = await store.goalContributions();
+  final kixikilas = await store.kixikilaGroups();
+  final kixikilaRecords = await store.kixikilaRecords();
   return FinanceData(
     accounts: accounts,
     categories: categories,
@@ -59,6 +65,8 @@ final financeProvider = FutureProvider.autoDispose<FinanceData>((ref) async {
     budgets: budgets,
     goals: goals,
     contributions: contributions,
+    kixikilas: kixikilas,
+    kixikilaRecords: kixikilaRecords,
   );
 });
 

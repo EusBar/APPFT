@@ -6,7 +6,7 @@ App de gestão e inteligência financeira pessoal (Android e iOS, Flutter), cons
 
 ## Estado
 
-**Fase 1 — Fundação** ✅ · **Fase 2 — Gestão financeira** ✅ · **Fase 3 — Motor financeiro** ✅ · **Fase 4 — Relatórios e importação** ✅ · **Fase 5 — Planeamento, parte A (v0.8.0)**
+**Fase 1 — Fundação** ✅ · **Fase 2 — Gestão financeira** ✅ · **Fase 3 — Motor financeiro** ✅ · **Fase 4 — Relatórios e importação** ✅ · **Fase 5 — Planeamento (v0.9.0)**
 
 - `packages/fintrack_core`: núcleo em Dart puro, sem UI
   - `Money` (inteiros na unidade mínima), `Currency` (AOA, USD, EUR, BRL, GBP, ZAR)
@@ -26,6 +26,11 @@ App de gestão e inteligência financeira pessoal (Android e iOS, Flutter), cons
 - Histórico: filtros por período, conta, categoria e intervalo de valores
 - Planeamento (núcleo `planning.dart`): orçamentos mensais (global ou por categoria, transporte de saldo, alertas 50/80/100%, estimativa de fim de mês), objetivos (reservados numa conta ou planeados, contribuição mensal necessária, marcos), compromissos recorrentes (semanal, mensal, anual; nunca pagos sozinhos) e categorização local pelo histórico
 - Perfil: nome, alcunha e fotografia (reduzida, na base cifrada)
+- Kixikila (núcleo `kixikila.dart`): grupos, rondas, contribuições e recebimento ligados ao livro-razão
+- Lembretes locais (compromissos e Kixikila, sem valores no ecrã bloqueado) e alertas de orçamento
+- Privacidade: consentimento explicado antes de fotografias, ficheiros e notificações; revogável nas Definições
+- Categorias: criar, renomear, mudar o ícone e arquivar
+- `tool/configure_android.py`: compileSdk 37, desugaring e recetores de notificações
 - `lib/planning/`: compromissos — criar, editar, pagar (gera a saída ligada), cancelar
 - `lib/home/`: Início (saldo disponível com horizonte, dicas rotativas, fluxo do mês, próximos compromissos, contas, recentes), Movimentos, Planear, Contas
 - fundos com pontos turísticos da região da moeda principal (5 por moeda)
@@ -40,7 +45,7 @@ App de gestão e inteligência financeira pessoal (Android e iOS, Flutter), cons
 - Sem os segredos `FINTRACK_KEYSTORE_*` no GitHub, o APK é assinado com uma chave de teste diferente em cada compilação (para atualizar é preciso desinstalar).
 - Os ficheiros exportados (PDF/CSV) não são cifrados.
 
-**A seguir (etapa 2B):** Kixikila, notificações locais e gerir categorias. Depois, etapa 3: publicação na Play Store.
+**A seguir (etapa 3 de 7):** publicação — política de privacidade, eliminação de conta, teste fechado na Play Store.
 
 ## Créditos
 

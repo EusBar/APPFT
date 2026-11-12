@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/local_store.dart';
 import '../design/tokens.dart';
+import '../privacy/consent.dart';
 import '../security/session.dart';
 
 /// Reduz uma fotografia a um quadrado de [size] px (corte central), em PNG.
@@ -85,6 +86,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _pickPhoto() async {
+    if (!await ensureConsent(context, ref, Consent.photos)) return;
     try {
       final files = await FilePicker.pickFiles(type: FileType.image);
       if (files.isEmpty) return;

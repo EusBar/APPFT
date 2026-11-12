@@ -189,12 +189,43 @@ class _MovementFormScreenState extends ConsumerState<MovementFormScreen> {
         return;
       }
       ref.invalidate(financeProvider);
+      final alert = _budgetAlert(movement);
+      final messenger = ScaffoldMessenger.of(context);
       Navigator.of(context).pop(true);
+      if (alert != null) messenger.showSnackBar(SnackBar(content: Text(alert)));
     } catch (_) {
       if (mounted) setState(() => _error = 'Não foi possível gravar. Tente de novo.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// Alerta de orçamento (50/80/100%) quando este movimento sobe de patamar.
+  String? _budgetAlert(Movement movement) {
+    if (movement.kind != MovementKind.expense || _data.budgets.isEmpty) return null;
+    final now = DateTime.now();
+    final month = DateTime(movement.date.year, movement.date.month);
+    final after = Ledger(
+      _data.ledger.accounts.values,
+      [
+        ..._data.ledger.movements,
+        if (movement.replaces != null)
+          _data.ledger.byId(movement.replaces!)!.reversal(id: 'tmp', createdAt: now),
+        movement,
+      ],
+    );
+    String? message;
+    for (final b in _data.budgets) {
+      final before = BudgetEngine.status(_data.ledger, b, month: month, today: now);
+      final next = BudgetEngine.status(after, b, month: month, today: now);
+      if (next.level.index > before.level.index && next.level.index >= BudgetLevel.warning.index) {
+        final name = b.isGlobal ? 'global' : _data.category(b.categoryId)?.name ?? '';
+        message = next.level == BudgetLevel.exceeded
+            ? 'Orçamento $name ultrapassado (${next.percent}%).'
+            : 'Atenção: orçamento $name a ${next.percent}%.';
+      }
+    }
+    return message;
   }
 
   Future<bool> _confirmDuplicate(Movement other) async {

@@ -5,9 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../design/country_photos.dart';
 import '../design/labels.dart';
 import '../design/tokens.dart';
+import '../finance/finance_data.dart';
+import '../notifications/reminders.dart';
+import '../privacy/consent.dart';
 import '../profile/profile_screen.dart';
 import '../security/pin_pad.dart';
 import '../security/session.dart';
+import 'categories_screen.dart';
 
 /// Definições de segurança.
 class SettingsScreen extends ConsumerWidget {
@@ -40,6 +44,8 @@ class SettingsScreen extends ConsumerWidget {
     );
     if (confirmed != true) return;
     if (context.mounted) Navigator.of(context).popUntil((r) => r.isFirst);
+    await ref.read(remindersProvider).cancelAll();
+    await ref.read(consentProvider.notifier).set(Consent.notifications, false);
     await ref.read(sessionProvider.notifier).resetApp();
   }
 
@@ -64,6 +70,17 @@ class SettingsScreen extends ConsumerWidget {
               MaterialPageRoute<void>(builder: (_) => const ProfileScreen()),
             ),
           ),
+          ListTile(
+            leading: const Icon(Icons.category_outlined),
+            title: const Text('Categorias'),
+            subtitle: const Text('Criar, renomear e arquivar'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const CategoriesScreen()),
+            ),
+          ),
+          const Divider(),
+          const _PrivacySection(),
           const Divider(),
           Padding(
             padding: const EdgeInsets.fromLTRB(FtSpace.md, FtSpace.md, FtSpace.md, FtSpace.xs),
@@ -276,6 +293,99 @@ class _PhotoCreditsScreen extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// Privacidade e permissões: o que o FINTRACK pode usar, com explicação.
+class _PrivacySection extends ConsumerWidget {
+  const _PrivacySection();
+
+  Future<void> _toggleNotifications(BuildContext context, WidgetRef ref, bool on) async {
+    final consent = ref.read(consentProvider.notifier);
+    final reminders = ref.read(remindersProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    if (!on) {
+      await reminders.cancelAll();
+      await consent.set(Consent.notifications, false);
+      return;
+    }
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => const ConsentSheet(consent: Consent.notifications),
+    );
+    if (ok != true) return;
+    final granted = await reminders.requestPermission();
+    if (!granted) {
+      messenger.showSnackBar(const SnackBar(
+        content: Text('O sistema não autorizou. Pode ativar em Definições do telemóvel › Apps › FINTRACK › Notificações.'),
+      ));
+      return;
+    }
+    await consent.set(Consent.notifications, true);
+    final data = ref.read(financeProvider).valueOrNull;
+    if (data != null) await reminders.reschedule(data);
+    messenger.showSnackBar(const SnackBar(content: Text('Lembretes ativados.')));
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final consents = ref.watch(consentProvider);
+    final controller = ref.read(consentProvider.notifier);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(FtSpace.md, FtSpace.md, FtSpace.md, FtSpace.xs),
+          child: Text('Privacidade e permissões', style: theme.textTheme.titleSmall),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: FtSpace.md),
+          child: Text(
+            'O FINTRACK pede cada acesso só quando é preciso e explica porquê. '
+            'Desligar retira o consentimento; da próxima vez volta a perguntar.',
+            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+        ),
+        SwitchListTile(
+          secondary: const Icon(Icons.notifications_outlined),
+          title: const Text('Lembretes'),
+          subtitle: const Text('Compromissos a vencer e Kixikila, sem valores no ecrã bloqueado.'),
+          value: consents[Consent.notifications] ?? false,
+          onChanged: (v) => _toggleNotifications(context, ref, v),
+        ),
+        SwitchListTile(
+          secondary: const Icon(Icons.photo_library_outlined),
+          title: const Text('Fotografias'),
+          subtitle: const Text('Só a fotografia que escolher, para o perfil.'),
+          value: consents[Consent.photos] ?? false,
+          onChanged: (v) => v
+              ? showModalBottomSheet<bool>(
+                  context: context,
+                  showDragHandle: true,
+                  isScrollControlled: true,
+                  builder: (_) => const ConsentSheet(consent: Consent.photos),
+                ).then((ok) => ok == true ? controller.set(Consent.photos, true) : null)
+              : controller.set(Consent.photos, false),
+        ),
+        SwitchListTile(
+          secondary: const Icon(Icons.folder_open_outlined),
+          title: const Text('Ficheiros'),
+          subtitle: const Text('Só o ficheiro que escolher, para importar.'),
+          value: consents[Consent.files] ?? false,
+          onChanged: (v) => v
+              ? showModalBottomSheet<bool>(
+                  context: context,
+                  showDragHandle: true,
+                  isScrollControlled: true,
+                  builder: (_) => const ConsentSheet(consent: Consent.files),
+                ).then((ok) => ok == true ? controller.set(Consent.files, true) : null)
+              : controller.set(Consent.files, false),
+        ),
+      ],
     );
   }
 }

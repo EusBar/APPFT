@@ -30,6 +30,14 @@ class Category {
   final String icon;
   final bool archived;
 
+  Category copyWith({String? name, String? icon, bool? archived}) => Category(
+        id: id,
+        kind: kind,
+        name: name ?? this.name,
+        icon: icon ?? this.icon,
+        archived: archived ?? this.archived,
+      );
+
   /// Categorias iniciais. Os identificadores são estáveis: nunca mudar.
   static const defaults = <Category>[
     Category(id: 'exp.habitacao', kind: CategoryKind.expense, name: 'Habitação', icon: 'home'),

@@ -13,10 +13,12 @@ import '../finance/movements_screen.dart';
 import '../planning/commitment_form_screen.dart';
 import '../profile/profile_screen.dart';
 import '../reports/report_screen.dart';
+import '../notifications/reminders.dart';
 import '../planning/budgets_view.dart';
-import '../planning/commitments_view.dart';
 import '../planning/goals_view.dart';
+import '../planning/kixikila_view.dart';
 import '../planning/planning_view.dart';
+import '../privacy/consent.dart';
 import '../security/session.dart';
 import '../settings/settings_screen.dart';
 import 'account_form.dart';
@@ -43,6 +45,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           PlanSection.commitments => ('Compromisso', () => CommitmentFormScreen(data: data)),
           PlanSection.budgets => ('Orçamento', () => BudgetFormScreen(data: data)),
           PlanSection.goals => ('Objetivo', () => GoalFormScreen(data: data)),
+          PlanSection.kixikila => ('Kixikila', () => KixikilaFormScreen(data: data)),
         },
       3 => ('Nova conta', () => NewAccountScreen(defaultCurrency: mainCurrency ?? Currency.aoa)),
       _ => ('Movimento', () => MovementFormScreen(data: data)),
@@ -56,8 +59,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  /// Reagenda os lembretes sempre que os dados mudam, se autorizados.
+  Future<void> _syncReminders(FinanceData data) async {
+    final allowed = await ref.read(secretStoreProvider).read(Consent.notifications.key) == '1';
+    if (allowed) await ref.read(remindersProvider).reschedule(data);
+  }
+
   @override
   Widget build(BuildContext context) {
+    ref.listen(financeProvider, (_, next) {
+      final data = next.valueOrNull;
+      if (data != null) _syncReminders(data);
+    });
     final session = ref.watch(sessionProvider);
     final controller = ref.read(sessionProvider.notifier);
     final finance = ref.watch(financeProvider);
@@ -146,13 +159,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 mainCurrency: mainCurrency,
                 onToggleDiscreet: controller.toggleDiscreet,
                 onSeeMovements: () => setState(() => _tab = 1),
-                onSeePlanning: () => setState(() {
+                onOpenPlanning: (s) => setState(() {
                   _tab = 2;
-                  _plan = PlanSection.commitments;
-                }),
-                onSeeBudgets: () => setState(() {
-                  _tab = 2;
-                  _plan = PlanSection.budgets;
+                  _plan = s;
                 }),
               ),
             1 => MovementsView(data: data, discreet: session.discreet),
@@ -200,8 +209,7 @@ class _Overview extends ConsumerWidget {
     required this.mainCurrency,
     required this.onToggleDiscreet,
     required this.onSeeMovements,
-    required this.onSeePlanning,
-    required this.onSeeBudgets,
+    required this.onOpenPlanning,
   });
 
   final FinanceData data;
@@ -210,8 +218,7 @@ class _Overview extends ConsumerWidget {
   final Currency mainCurrency;
   final VoidCallback onToggleDiscreet;
   final VoidCallback onSeeMovements;
-  final VoidCallback onSeePlanning;
-  final VoidCallback onSeeBudgets;
+  final ValueChanged<PlanSection> onOpenPlanning;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -220,11 +227,6 @@ class _Overview extends ConsumerWidget {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final recent = ledger.active().take(5).toList();
-    final soon = [
-      for (final c in ledger.pending())
-        if (!c.dueDate.isAfter(today.add(const Duration(days: 7)))) c,
-    ];
-    final hasCommitments = ledger.pending().isNotEmpty;
 
     Widget sectionHeader(String text, {VoidCallback? onMore}) => Row(
           children: [
@@ -253,30 +255,8 @@ class _Overview extends ConsumerWidget {
           ),
           child: MonthFlowCard(ledger: ledger, today: today, mainCurrency: mainCurrency, discreet: discreet),
         ),
-        if (data.budgets.isNotEmpty) ...[
-          const SizedBox(height: FtSpace.lg),
-          sectionHeader('Orçamento do mês', onMore: onSeeBudgets),
-          for (final b in ([...data.budgets]..sort((a, b) => a.isGlobal ? -1 : b.isGlobal ? 1 : 0)).take(3))
-            BudgetTile(
-              data: data,
-              status: BudgetEngine.status(ledger, b, month: DateTime(today.year, today.month), today: today),
-              discreet: discreet,
-              compact: true,
-            ),
-        ],
-        if (hasCommitments) ...[
-          const SizedBox(height: FtSpace.lg),
-          sectionHeader('Próximos compromissos', onMore: onSeePlanning),
-          if (soon.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: FtSpace.sm),
-              child: Text(
-                'Nada a pagar nos próximos 7 dias.',
-                style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-              ),
-            ),
-          for (final c in soon.take(3)) CommitmentTile(commitment: c, data: data, discreet: discreet),
-        ],
+        const SizedBox(height: FtSpace.md),
+        PlanningSummaryCard(data: data, onOpen: onOpenPlanning),
         const SizedBox(height: FtSpace.lg),
         sectionHeader('Contas'),
         for (final a in data.openAccounts) _AccountRow(account: a, data: data, discreet: discreet),

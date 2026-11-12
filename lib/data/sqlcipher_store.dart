@@ -14,7 +14,7 @@ class SqlCipherStoreFactory implements LocalStoreFactory {
   const SqlCipherStoreFactory();
 
   static const _fileName = 'fintrack.db';
-  static const _version = 5;
+  static const _version = 6;
 
   Future<String> _path() async => p.join(await getDatabasesPath(), _fileName);
 
@@ -30,7 +30,7 @@ class SqlCipherStoreFactory implements LocalStoreFactory {
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
       onCreate: (db, version) async {
         final batch = db.batch();
-        for (final statement in [..._schemaV1, ..._schemaV2, ..._schemaV3, ..._schemaV4, ..._schemaV5]) {
+        for (final statement in [..._schemaV1, ..._schemaV2, ..._schemaV3, ..._schemaV4, ..._schemaV5, ..._schemaV6]) {
           batch.execute(statement);
         }
         _seedCategories(batch);
@@ -56,6 +56,11 @@ class SqlCipherStoreFactory implements LocalStoreFactory {
         }
         if (from < 5) {
           for (final statement in _schemaV5) {
+            batch.execute(statement);
+          }
+        }
+        if (from < 6) {
+          for (final statement in _schemaV6) {
             batch.execute(statement);
           }
         }
@@ -185,6 +190,33 @@ class SqlCipherStoreFactory implements LocalStoreFactory {
       amount_minor INTEGER NOT NULL,
       currency TEXT NOT NULL,
       date TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )''',
+  ];
+
+  /// Etapa 2B: Kixikila.
+  static const _schemaV6 = [
+    '''
+    CREATE TABLE kixikila_groups (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      members TEXT NOT NULL,
+      contribution_minor INTEGER NOT NULL CHECK (contribution_minor > 0),
+      currency TEXT NOT NULL,
+      period TEXT NOT NULL,
+      start_date TEXT NOT NULL,
+      my_turn INTEGER NOT NULL,
+      account_id TEXT NOT NULL REFERENCES accounts(id),
+      archived INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL
+    )''',
+    '''
+    CREATE TABLE kixikila_records (
+      id TEXT PRIMARY KEY,
+      group_id TEXT NOT NULL REFERENCES kixikila_groups(id),
+      round INTEGER NOT NULL,
+      kind TEXT NOT NULL,
+      movement_id TEXT NOT NULL REFERENCES movements(id),
       created_at INTEGER NOT NULL
     )''',
   ];
@@ -502,6 +534,102 @@ class _SqlCipherStore implements LocalStore {
       'currency': c.amount.currency.code,
       'date': _date(c.date),
       'created_at': c.createdAt.millisecondsSinceEpoch,
+    });
+  }
+
+  @override
+  Future<void> saveCategory(Category c) async {
+    final existing = await _db.query('categories', columns: ['sort'], where: 'id = ?', whereArgs: [c.id]);
+    int sort;
+    if (existing.isNotEmpty) {
+      sort = existing.first['sort']! as int;
+    } else {
+      final max = await _db.rawQuery('SELECT COALESCE(MAX(sort), 0) + 1 AS n FROM categories');
+      sort = max.first['n']! as int;
+    }
+    await _db.insert(
+      'categories',
+      {
+        'id': c.id,
+        'kind': c.kind.code,
+        'name': c.name,
+        'icon': c.icon,
+        'archived': c.archived ? 1 : 0,
+        'sort': sort,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  @override
+  Future<List<KixikilaGroup>> kixikilaGroups() async {
+    final rows = await _db.query('kixikila_groups', orderBy: 'created_at');
+    return [
+      for (final r in rows)
+        KixikilaGroup(
+          id: r['id']! as String,
+          name: r['name']! as String,
+          members: (r['members']! as String).split('\n'),
+          contribution: Money(r['contribution_minor']! as int, Currency.fromCode(r['currency']! as String)),
+          period: Recurrence.fromCode(r['period']! as String),
+          startDate: DateTime.parse(r['start_date']! as String),
+          myTurn: r['my_turn']! as int,
+          accountId: r['account_id']! as String,
+          archived: r['archived'] == 1,
+          createdAt: DateTime.fromMillisecondsSinceEpoch(r['created_at']! as int),
+        ),
+    ];
+  }
+
+  @override
+  Future<void> saveKixikilaGroup(KixikilaGroup g) async {
+    await _db.insert(
+      'kixikila_groups',
+      {
+        'id': g.id,
+        'name': g.name,
+        'members': g.members.join('\n'),
+        'contribution_minor': g.contribution.minor,
+        'currency': g.contribution.currency.code,
+        'period': g.period.code,
+        'start_date': _date(g.startDate),
+        'my_turn': g.myTurn,
+        'account_id': g.accountId,
+        'archived': g.archived ? 1 : 0,
+        'created_at': g.createdAt.millisecondsSinceEpoch,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  @override
+  Future<List<KixikilaRecord>> kixikilaRecords() async {
+    final rows = await _db.query('kixikila_records', orderBy: 'created_at');
+    return [
+      for (final r in rows)
+        KixikilaRecord(
+          id: r['id']! as String,
+          groupId: r['group_id']! as String,
+          round: r['round']! as int,
+          kind: KixikilaRecordKind.fromCode(r['kind']! as String),
+          movementId: r['movement_id']! as String,
+          createdAt: DateTime.fromMillisecondsSinceEpoch(r['created_at']! as int),
+        ),
+    ];
+  }
+
+  @override
+  Future<void> recordKixikila(Movement movement, KixikilaRecord record) {
+    return _db.transaction((txn) async {
+      await txn.insert('movements', _movementRow(movement), conflictAlgorithm: ConflictAlgorithm.abort);
+      await txn.insert('kixikila_records', {
+        'id': record.id,
+        'group_id': record.groupId,
+        'round': record.round,
+        'kind': record.kind.code,
+        'movement_id': record.movementId,
+        'created_at': record.createdAt.millisecondsSinceEpoch,
+      });
     });
   }
 

@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:fintrack/data/local_store.dart';
 import 'package:fintrack/main.dart';
+import 'package:fintrack/notifications/reminders.dart';
 import 'package:fintrack/security/biometric_key_store.dart';
 import 'package:fintrack/security/pin_vault.dart';
 import 'package:fintrack/security/secret_store.dart';
@@ -22,8 +23,10 @@ void main() {
   late MemorySecretStore secrets;
   late MemoryLocalStore data;
   late MemoryBiometricKeyStore bio;
+  late MemoryReminders reminders;
 
   setUp(() {
+    reminders = MemoryReminders();
     secrets = MemorySecretStore();
     data = MemoryLocalStore();
     bio = MemoryBiometricKeyStore();
@@ -37,6 +40,7 @@ void main() {
           pinVaultProvider.overrideWithValue(PinVault(secrets, deriver: fakeDerive)),
           localStoreFactoryProvider.overrideWithValue(data),
           biometricKeyStoreProvider.overrideWithValue(bio),
+          remindersProvider.overrideWithValue(reminders),
         ],
         child: const FintrackApp(),
       ),
@@ -344,6 +348,73 @@ void main() {
     expect(pending, hasLength(1), reason: 'a próxima ocorrência fica pendente, nunca paga');
     expect(pending.single.dueDate, Recurrence.monthly.next(first.dueDate));
     expect(pending.single.seriesId, first.id);
+  });
+
+  testWidgets('Início mostra só o resumo do Planear; toque abre a secção', (tester) async {
+    await setUpUser(tester);
+    await tester.scrollUntilVisible(find.text('PLANEAR'), 200, scrollable: find.byType(Scrollable).first);
+    expect(find.text('Nada pendente'), findsOneWidget);
+    expect(find.text('Definir'), findsOneWidget);
+    await tester.tap(find.text('Kixikila'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Acompanhe a sua Kixikila'), findsOneWidget);
+  });
+
+  testWidgets('Kixikila: criar grupo e registar contribuição', (tester) async {
+    await setUpUser(tester);
+    await tester.tap(find.text('Planear'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Kixikila'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FloatingActionButton, 'Kixikila'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('kixikila-name')), 'Família');
+    await tester.enterText(find.byKey(const Key('kixikila-amount')), '10 000');
+    await tester.enterText(find.byKey(const Key('kixikila-member-1')), 'Ana');
+    await tapText(tester, 'Guardar Kixikila');
+    expect(data.kixikilaById.values.single.payout, const Money(2000000, Currency.aoa));
+
+    await tapText(tester, 'Registar contribuição');
+    await tester.tap(find.text('Registar'));
+    await tester.pumpAndSettle();
+    expect(data.ledger.single.categoryId, 'exp.kixikila');
+    expect(data.kixikilaLog.single.round, 0);
+    expect(find.text('1/2'), findsOneWidget);
+  });
+
+  testWidgets('importar pede consentimento antes de abrir ficheiros', (tester) async {
+    await setUpUser(tester);
+    await tester.tap(find.text('Movimentos'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Importar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Escolher ficheiro'));
+    await tester.pumpAndSettle();
+    expect(find.text('O FINTRACK quer aceder a ficheiros'), findsOneWidget);
+    await tester.tap(find.text('Agora não'));
+    await tester.pumpAndSettle();
+    expect(secrets.values.containsKey('ft.consent.files'), isFalse);
+  });
+
+  testWidgets('lembretes: ativar agenda os compromissos, sem valores', (tester) async {
+    await setUpUser(tester);
+    await tester.tap(find.text('Planear'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Compromisso'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('commitment-description')), 'Renda');
+    await tester.enterText(find.byKey(const Key('commitment-amount')), '45 000');
+    await tapText(tester, 'Habitação');
+    await tapText(tester, 'Guardar compromisso');
+
+    await tester.tap(find.byTooltip('Definições'));
+    await tester.pumpAndSettle();
+    await tapText(tester, 'Lembretes');
+    await tester.tap(find.text('Continuar'));
+    await tester.pumpAndSettle();
+    expect(secrets.values['ft.consent.notifications'], '1');
+    expect(reminders.scheduled.map((r) => r.body), ['Renda vence amanhã.', 'Renda vence hoje.']);
+    expect(reminders.scheduled.any((r) => r.body.contains('45')), isFalse);
   });
 
   testWidgets('biometria: ativar com PIN e desbloquear sem PIN', (tester) async {
