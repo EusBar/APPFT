@@ -11,8 +11,12 @@ import '../finance/movement_form_screen.dart';
 import '../finance/movement_tile.dart';
 import '../finance/movements_screen.dart';
 import '../planning/commitment_form_screen.dart';
+import '../profile/profile_screen.dart';
 import '../reports/report_screen.dart';
+import '../planning/budgets_view.dart';
 import '../planning/commitments_view.dart';
+import '../planning/goals_view.dart';
+import '../planning/planning_view.dart';
 import '../security/session.dart';
 import '../settings/settings_screen.dart';
 import 'account_form.dart';
@@ -30,11 +34,16 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _tab = 0;
+  PlanSection _plan = PlanSection.commitments;
 
   Widget? _fab(FinanceData? data, Currency? mainCurrency) {
     if (data == null) return null;
     final (String, Widget Function()) action = switch (_tab) {
-      2 => ('Compromisso', () => CommitmentFormScreen(data: data)),
+      2 => switch (_plan) {
+          PlanSection.commitments => ('Compromisso', () => CommitmentFormScreen(data: data)),
+          PlanSection.budgets => ('Orçamento', () => BudgetFormScreen(data: data)),
+          PlanSection.goals => ('Objetivo', () => GoalFormScreen(data: data)),
+        },
       3 => ('Nova conta', () => NewAccountScreen(defaultCurrency: mainCurrency ?? Currency.aoa)),
       _ => ('Movimento', () => MovementFormScreen(data: data)),
     };
@@ -56,7 +65,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final mainCurrency = profile?.mainCurrency ?? Currency.aoa;
 
     final title = switch (_tab) {
-      0 => profile == null ? 'FINTRACK' : 'Olá, ${profile.name.split(' ').first}',
+      0 => profile == null ? 'FINTRACK' : 'Olá, ${profile.greetingName}',
       1 => 'Movimentos',
       2 => 'Planear',
       _ => 'Contas',
@@ -67,6 +76,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
+          titleSpacing: _tab == 0 ? 0 : null,
+          leading: _tab != 0
+              ? null
+              : IconButton(
+                  tooltip: 'Perfil',
+                  icon: ProfileAvatar(profile: profile, radius: 16),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(builder: (_) => const ProfileScreen()),
+                  ),
+                ),
           title: Text(title),
           actions: [
             IconButton(
@@ -127,10 +146,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 mainCurrency: mainCurrency,
                 onToggleDiscreet: controller.toggleDiscreet,
                 onSeeMovements: () => setState(() => _tab = 1),
-                onSeePlanning: () => setState(() => _tab = 2),
+                onSeePlanning: () => setState(() {
+                  _tab = 2;
+                  _plan = PlanSection.commitments;
+                }),
+                onSeeBudgets: () => setState(() {
+                  _tab = 2;
+                  _plan = PlanSection.budgets;
+                }),
               ),
             1 => MovementsView(data: data, discreet: session.discreet),
-            2 => CommitmentsView(data: data, discreet: session.discreet),
+            2 => PlanningView(
+                data: data,
+                discreet: session.discreet,
+                section: _plan,
+                onSection: (s) => setState(() => _plan = s),
+              ),
             _ => _AccountsView(data: data, discreet: session.discreet),
           },
         ),
@@ -170,6 +201,7 @@ class _Overview extends ConsumerWidget {
     required this.onToggleDiscreet,
     required this.onSeeMovements,
     required this.onSeePlanning,
+    required this.onSeeBudgets,
   });
 
   final FinanceData data;
@@ -179,6 +211,7 @@ class _Overview extends ConsumerWidget {
   final VoidCallback onToggleDiscreet;
   final VoidCallback onSeeMovements;
   final VoidCallback onSeePlanning;
+  final VoidCallback onSeeBudgets;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -220,6 +253,17 @@ class _Overview extends ConsumerWidget {
           ),
           child: MonthFlowCard(ledger: ledger, today: today, mainCurrency: mainCurrency, discreet: discreet),
         ),
+        if (data.budgets.isNotEmpty) ...[
+          const SizedBox(height: FtSpace.lg),
+          sectionHeader('Orçamento do mês', onMore: onSeeBudgets),
+          for (final b in ([...data.budgets]..sort((a, b) => a.isGlobal ? -1 : b.isGlobal ? 1 : 0)).take(3))
+            BudgetTile(
+              data: data,
+              status: BudgetEngine.status(ledger, b, month: DateTime(today.year, today.month), today: today),
+              discreet: discreet,
+              compact: true,
+            ),
+        ],
         if (hasCommitments) ...[
           const SizedBox(height: FtSpace.lg),
           sectionHeader('Próximos compromissos', onMore: onSeePlanning),

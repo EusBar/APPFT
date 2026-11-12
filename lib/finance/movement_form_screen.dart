@@ -30,6 +30,8 @@ class _MovementFormScreenState extends ConsumerState<MovementFormScreen> {
   late String? _accountId;
   String? _toAccountId;
   String? _categoryId;
+  bool _categoryTouched = false;
+  bool _suggested = false;
   late DateTime _date;
   final _amount = TextEditingController();
   final _toAmount = TextEditingController();
@@ -74,6 +76,19 @@ class _MovementFormScreenState extends ConsumerState<MovementFormScreen> {
       if (a.id != id) return a.id;
     }
     return null;
+  }
+
+  /// IA local: sugere a categoria pelo histórico enquanto o utilizador não
+  /// escolher uma à mão.
+  void _suggestCategory(String description) {
+    if (_categoryTouched || _kind == MovementKind.transfer) return;
+    final suggestion = _data.suggester.suggest(description, _kind, _data.categories);
+    if (suggestion != _categoryId) {
+      setState(() {
+        _categoryId = suggestion;
+        _suggested = suggestion != null;
+      });
+    }
   }
 
   Account? get _from => _data.account(_accountId);
@@ -259,6 +274,8 @@ class _MovementFormScreenState extends ConsumerState<MovementFormScreen> {
               onSelectionChanged: (s) => setState(() {
                 _kind = s.first;
                 _categoryId = null;
+                _categoryTouched = false;
+                _suggested = false;
                 _error = null;
               }),
             ),
@@ -354,16 +371,29 @@ class _MovementFormScreenState extends ConsumerState<MovementFormScreen> {
                       avatar: Icon(categoryIcon(c.icon), size: 18),
                       label: Text(c.name),
                       selected: _categoryId == c.id,
-                      onSelected: (_) => setState(() => _categoryId = c.id),
+                      onSelected: (_) => setState(() {
+                        _categoryId = c.id;
+                        _categoryTouched = true;
+                        _suggested = false;
+                      }),
                     ),
                 ],
               ),
+              if (_suggested && _categoryId != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: FtSpace.xs),
+                  child: Text(
+                    'Sugerida a partir do seu histórico (no aparelho). Toque noutra para mudar.',
+                    style: theme.textTheme.bodySmall?.copyWith(color: colors.aiAccent),
+                  ),
+                ),
             ],
             const SizedBox(height: FtSpace.lg),
             TextField(
               key: const Key('movement-description'),
               controller: _description,
               maxLength: Movement.descriptionMaxLength,
+              onChanged: _suggestCategory,
               textCapitalization: TextCapitalization.sentences,
               decoration: const InputDecoration(
                 labelText: 'Descrição (opcional)',

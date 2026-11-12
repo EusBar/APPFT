@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../design/country_photos.dart';
 import '../design/labels.dart';
 import '../design/tokens.dart';
+import '../profile/profile_screen.dart';
 import '../security/pin_pad.dart';
 import '../security/session.dart';
 
@@ -54,6 +55,16 @@ class SettingsScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Definições')),
       body: ListView(
         children: [
+          ListTile(
+            leading: ProfileAvatar(profile: ref.watch(sessionProvider.select((s) => s.profile))),
+            title: const Text('Perfil'),
+            subtitle: const Text('Nome, alcunha e fotografia'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const ProfileScreen()),
+            ),
+          ),
+          const Divider(),
           Padding(
             padding: const EdgeInsets.fromLTRB(FtSpace.md, FtSpace.md, FtSpace.md, FtSpace.xs),
             child: Text('Bloqueio automático', style: theme.textTheme.titleSmall),

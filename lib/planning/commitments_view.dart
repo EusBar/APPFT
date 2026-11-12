@@ -41,8 +41,8 @@ class CommitmentsView extends StatelessWidget {
           ),
         );
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(FtSpace.lg, FtSpace.sm, FtSpace.lg, 96),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (pending.isEmpty && done.isEmpty)
           Padding(
@@ -125,7 +125,8 @@ class CommitmentTile extends StatelessWidget {
             : null,
       ),
       subtitle: Text(
-        '$statusText · ${data.account(c.accountId)?.name ?? '?'}',
+        '$statusText${c.recurrence == Recurrence.none ? '' : ' · ↻ ${recurrenceLabel(c.recurrence).toLowerCase()}'}'
+        ' · ${data.account(c.accountId)?.name ?? '?'}',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: overdue ? TextStyle(color: colors.alert) : null,
@@ -213,27 +214,30 @@ class _CommitmentSheet extends ConsumerWidget {
   }
 
   Future<void> _cancel(BuildContext context, WidgetRef ref) async {
-    final ok = await showDialog<bool>(
+    final recurring = commitment.recurrence != Recurrence.none;
+    // null = manter; true = só esta (série continua); false = cancelar/terminar.
+    final choice = await showDialog<bool?>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Cancelar este compromisso?'),
-        content: const Text('Deixa de reduzir o saldo disponível. Não é registada nenhuma saída.'),
+        title: Text(recurring ? 'Cancelar compromisso recorrente' : 'Cancelar este compromisso?'),
+        content: Text(recurring
+            ? 'Pode saltar só esta ocorrência (o FINTRACK prepara a seguinte) ou terminar a série.'
+            : 'Deixa de reduzir o saldo disponível. Não é registada nenhuma saída.'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Manter'),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Manter')),
+          if (recurring)
+            TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Saltar esta')),
           FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Cancelar compromisso'),
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(recurring ? 'Terminar a série' : 'Cancelar compromisso'),
           ),
         ],
       ),
     );
-    if (ok != true || !context.mounted) return;
+    if (choice == null || !context.mounted) return;
     final store = ref.read(sessionProvider.notifier).store;
     if (store == null) return;
-    final issue = await LedgerWriter(store, data).cancelCommitment(commitment);
+    final issue = await LedgerWriter(store, data).cancelCommitment(commitment, continueSeries: choice);
     ref.invalidate(financeProvider);
     if (!context.mounted) return;
     final messenger = ScaffoldMessenger.of(context);
@@ -254,6 +258,7 @@ class _CommitmentSheet extends ConsumerWidget {
     final rows = <(String, String)>[
       ('Valor', discreet ? '••••••' : c.amount.format()),
       ('Data prevista', dayLabel(c.dueDate)),
+      if (c.recurrence != Recurrence.none) ('Repetição', recurrenceLabel(c.recurrence)),
       ('Conta', data.account(c.accountId)?.name ?? '?'),
       ('Categoria', data.category(c.categoryId)?.name ?? '?'),
       ('Estado', switch (status) {

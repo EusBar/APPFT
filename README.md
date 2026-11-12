@@ -6,7 +6,7 @@ App de gestão e inteligência financeira pessoal (Android e iOS, Flutter), cons
 
 ## Estado
 
-**Fase 1 — Fundação** ✅ · **Fase 2 — Gestão financeira** ✅ · **Fase 3 — Motor financeiro** ✅ · **Fase 4 — Relatórios e importação (v0.7.0)**
+**Fase 1 — Fundação** ✅ · **Fase 2 — Gestão financeira** ✅ · **Fase 3 — Motor financeiro** ✅ · **Fase 4 — Relatórios e importação** ✅ · **Fase 5 — Planeamento, parte A (v0.8.0)**
 
 - `packages/fintrack_core`: núcleo em Dart puro, sem UI
   - `Money` (inteiros na unidade mínima), `Currency` (AOA, USD, EUR, BRL, GBP, ZAR)
@@ -24,6 +24,8 @@ App de gestão e inteligência financeira pessoal (Android e iOS, Flutter), cons
 - Importação (núcleo `importer.dart` + `lib/importing/`): CSV (";", "," ou tabulação, UTF-8 ou Latin-1) e Excel .xlsx; deteção de colunas (incl. débito/crédito de extratos), datas e números de série do Excel, pré-visualização, duplicados desmarcados e anulação da importação inteira com estornos
 - Contas: editar; corrigir o saldo inicial e apagar só sem histórico; arquivar e reativar
 - Histórico: filtros por período, conta, categoria e intervalo de valores
+- Planeamento (núcleo `planning.dart`): orçamentos mensais (global ou por categoria, transporte de saldo, alertas 50/80/100%, estimativa de fim de mês), objetivos (reservados numa conta ou planeados, contribuição mensal necessária, marcos), compromissos recorrentes (semanal, mensal, anual; nunca pagos sozinhos) e categorização local pelo histórico
+- Perfil: nome, alcunha e fotografia (reduzida, na base cifrada)
 - `lib/planning/`: compromissos — criar, editar, pagar (gera a saída ligada), cancelar
 - `lib/home/`: Início (saldo disponível com horizonte, dicas rotativas, fluxo do mês, próximos compromissos, contas, recentes), Movimentos, Planear, Contas
 - fundos com pontos turísticos da região da moeda principal (5 por moeda)
@@ -38,7 +40,7 @@ App de gestão e inteligência financeira pessoal (Android e iOS, Flutter), cons
 - Sem os segredos `FINTRACK_KEYSTORE_*` no GitHub, o APK é assinado com uma chave de teste diferente em cada compilação (para atualizar é preciso desinstalar).
 - Os ficheiros exportados (PDF/CSV) não são cifrados.
 
-**A seguir (etapa 2 de 7):** Fase 5 — orçamentos, recorrentes, objetivos, Kixikila, notificações e IA local; gerir categorias.
+**A seguir (etapa 2B):** Kixikila, notificações locais e gerir categorias. Depois, etapa 3: publicação na Play Store.
 
 ## Créditos
 

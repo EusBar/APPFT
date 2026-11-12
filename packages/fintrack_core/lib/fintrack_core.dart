@@ -15,4 +15,5 @@ export 'src/money.dart';
 export 'src/movement.dart';
 export 'src/names.dart';
 export 'src/pin_policy.dart';
+export 'src/planning.dart';
 export 'src/report.dart';

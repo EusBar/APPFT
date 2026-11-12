@@ -12,7 +12,17 @@ class FinanceData {
     required this.categories,
     required List<Movement> movements,
     List<Commitment> commitments = const [],
+    this.budgets = const [],
+    this.goals = const [],
+    this.contributions = const [],
   }) : ledger = Ledger(accounts, movements, commitments: commitments);
+
+  final List<Budget> budgets;
+  final List<Goal> goals;
+  final List<GoalContribution> contributions;
+
+  /// Sugestões de categoria a partir do histórico (IA local, no aparelho).
+  late final CategorySuggester suggester = CategorySuggester(ledger.movements);
 
   final List<Category> categories;
   final Ledger ledger;
@@ -38,11 +48,17 @@ final financeProvider = FutureProvider.autoDispose<FinanceData>((ref) async {
   final categories = await store.categories();
   final movements = await store.movements();
   final commitments = await store.commitments();
+  final budgets = await store.budgets();
+  final goals = await store.goals();
+  final contributions = await store.goalContributions();
   return FinanceData(
     accounts: accounts,
     categories: categories,
     movements: movements,
     commitments: commitments,
+    budgets: budgets,
+    goals: goals,
+    contributions: contributions,
   );
 });
 
@@ -88,13 +104,29 @@ class LedgerWriter {
     final issue = ledger.check(payment, today: DateTime.now());
     if (issue != null) return issue;
     await _store.payCommitment(c, payment);
+    await _scheduleNext(c);
     return null;
   }
 
-  Future<MovementIssue?> cancelCommitment(Commitment c) async {
+  /// Cancela. Numa série recorrente, [continueSeries] salta só esta
+  /// ocorrência (cria a seguinte); sem ele, a série termina.
+  Future<MovementIssue?> cancelCommitment(Commitment c, {bool continueSeries = false}) async {
     if (_data.ledger.statusOf(c) != CommitmentStatus.pending) return MovementIssue.notPending;
     await _store.cancelCommitment(c.id);
+    if (continueSeries) await _scheduleNext(c);
     return null;
+  }
+
+  /// Próxima ocorrência de uma série (pendente): nunca é paga sozinha.
+  Future<void> _scheduleNext(Commitment c) async {
+    final seriesId = c.seriesId ?? c.id;
+    final next = c.nextOccurrence(id: newId(), createdAt: DateTime.now());
+    if (next == null) return;
+    // Evita duplicar se a próxima já existir (ex.: pagamento anulado e refeito).
+    final exists = _data.ledger.commitments.any(
+      (o) => (o.seriesId ?? o.id) == seriesId && o.id != c.id && o.dueDate == next.dueDate,
+    );
+    if (!exists) await _store.saveCommitment(next);
   }
 
   /// Anula um movimento com um estorno.

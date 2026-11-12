@@ -5,10 +5,29 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 
 /// Perfil do utilizador neste dispositivo.
 class Profile {
-  const Profile({required this.name, required this.mainCurrency});
+  const Profile({required this.name, required this.mainCurrency, this.nickname, this.photo});
 
   final String name;
   final Currency mainCurrency;
+
+  /// Como prefere ser tratado (ex.: "EMBK"). Vazio = primeiro nome.
+  final String? nickname;
+
+  /// Fotografia já reduzida (PNG), guardada na base cifrada.
+  final Uint8List? photo;
+
+  /// Nome usado na saudação.
+  String get greetingName {
+    final n = nickname?.trim();
+    return n != null && n.isNotEmpty ? n : name.split(' ').first;
+  }
+
+  Profile copyWith({String? name, String? nickname, Uint8List? photo, bool clearPhoto = false}) => Profile(
+        name: name ?? this.name,
+        mainCurrency: mainCurrency,
+        nickname: nickname ?? this.nickname,
+        photo: clearPhoto ? null : photo ?? this.photo,
+      );
 }
 
 /// Dados locais do FINTRACK, abertos só depois do desbloqueio.
@@ -48,6 +67,17 @@ abstract interface class LocalStore {
 
   Future<void> cancelCommitment(String id);
 
+  Future<void> updateProfile(Profile profile);
+
+  Future<List<Budget>> budgets();
+  Future<void> saveBudget(Budget budget);
+  Future<void> deleteBudget(String id);
+
+  Future<List<Goal>> goals();
+  Future<void> saveGoal(Goal goal);
+  Future<List<GoalContribution>> goalContributions();
+  Future<void> addGoalContribution(GoalContribution contribution);
+
   Future<void> close();
 }
 
@@ -66,6 +96,9 @@ class MemoryLocalStore implements LocalStore, LocalStoreFactory {
   final List<Account> stored = [];
   final List<Movement> ledger = [];
   final Map<String, Commitment> commitmentsById = {};
+  final Map<String, Budget> budgetsById = {};
+  final Map<String, Goal> goalsById = {};
+  final List<GoalContribution> contributions = [];
   Uint8List? openedWith;
   bool closed = false;
 
@@ -82,6 +115,9 @@ class MemoryLocalStore implements LocalStore, LocalStoreFactory {
     stored.clear();
     ledger.clear();
     commitmentsById.clear();
+    budgetsById.clear();
+    goalsById.clear();
+    contributions.clear();
   }
 
   @override
@@ -160,10 +196,37 @@ class MemoryLocalStore implements LocalStore, LocalStoreFactory {
         note: c.note,
         dueDate: c.dueDate,
         status: CommitmentStatus.cancelled,
+        recurrence: c.recurrence,
+        seriesId: c.seriesId,
+        anchorDay: c.anchorDay,
         createdAt: c.createdAt,
       );
     }
   }
+
+  @override
+  Future<void> updateProfile(Profile profile) async => this.profile = profile;
+
+  @override
+  Future<List<Budget>> budgets() async => budgetsById.values.toList();
+
+  @override
+  Future<void> saveBudget(Budget budget) async => budgetsById[budget.id] = budget;
+
+  @override
+  Future<void> deleteBudget(String id) async => budgetsById.remove(id);
+
+  @override
+  Future<List<Goal>> goals() async => goalsById.values.toList();
+
+  @override
+  Future<void> saveGoal(Goal goal) async => goalsById[goal.id] = goal;
+
+  @override
+  Future<List<GoalContribution>> goalContributions() async => List.unmodifiable(contributions);
+
+  @override
+  Future<void> addGoalContribution(GoalContribution contribution) async => contributions.add(contribution);
 
   @override
   Future<void> close() async => closed = true;

@@ -22,6 +22,7 @@ class _CommitmentFormScreenState extends ConsumerState<CommitmentFormScreen> {
   late String? _accountId;
   String? _categoryId;
   late DateTime _due;
+  late Recurrence _recurrence = widget.editing?.recurrence ?? Recurrence.none;
   final _amount = TextEditingController();
   final _description = TextEditingController();
   final _note = TextEditingController();
@@ -99,6 +100,9 @@ class _CommitmentFormScreenState extends ConsumerState<CommitmentFormScreen> {
       description: _description.text,
       note: _note.text,
       dueDate: _due,
+      recurrence: _recurrence,
+      seriesId: base?.seriesId,
+      anchorDay: base == null || base.dueDate != DateTime(_due.year, _due.month, _due.day) ? null : base.anchorDay,
       createdAt: base?.createdAt ?? DateTime.now(),
     );
 
@@ -196,6 +200,20 @@ class _CommitmentFormScreenState extends ConsumerState<CommitmentFormScreen> {
               subtitle: Text(dayLabel(_due)),
               onTap: _pickDate,
             ),
+            DropdownButtonFormField<Recurrence>(
+              initialValue: _recurrence,
+              decoration: const InputDecoration(
+                labelText: 'Repetição',
+                helperText: 'Ao pagar, o FINTRACK prepara o seguinte. Nunca paga sozinho.',
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                for (final r in Recurrence.values)
+                  DropdownMenuItem(value: r, child: Text(recurrenceLabel(r))),
+              ],
+              onChanged: (r) => setState(() => _recurrence = r ?? Recurrence.none),
+            ),
+            const SizedBox(height: FtSpace.md),
             Text('Categoria', style: theme.textTheme.labelLarge),
             const SizedBox(height: FtSpace.sm),
             Wrap(

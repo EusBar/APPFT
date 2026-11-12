@@ -224,6 +224,7 @@ class ImportPlan {
     required String batchId,
     required String Function() newId,
     required DateTime Function() now,
+    String? Function(String description, MovementKind kind)? suggest,
   }) {
     String cell(List<String> r, int? i) => i == null || i >= r.length ? '' : r[i].trim();
     String norm(String s) => ImportColumns._norm(s);
@@ -309,9 +310,11 @@ class ImportPlan {
       }
 
       final categoryKind = kind == MovementKind.income ? CategoryKind.income : CategoryKind.expense;
-      final category =
-          categoryByName(cell(r, columns.category), categoryKind) ?? fallback[categoryKind]!;
       final description = cell(r, columns.description);
+      final suggested = suggest?.call(description, kind);
+      final category = categoryByName(cell(r, columns.category), categoryKind) ??
+          (suggested == null ? null : categories.where((c) => c.id == suggested).firstOrNull) ??
+          fallback[categoryKind]!;
 
       final movement = Movement(
         id: newId(),

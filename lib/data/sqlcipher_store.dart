@@ -14,7 +14,7 @@ class SqlCipherStoreFactory implements LocalStoreFactory {
   const SqlCipherStoreFactory();
 
   static const _fileName = 'fintrack.db';
-  static const _version = 4;
+  static const _version = 5;
 
   Future<String> _path() async => p.join(await getDatabasesPath(), _fileName);
 
@@ -30,7 +30,7 @@ class SqlCipherStoreFactory implements LocalStoreFactory {
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
       onCreate: (db, version) async {
         final batch = db.batch();
-        for (final statement in [..._schemaV1, ..._schemaV2, ..._schemaV3, ..._schemaV4]) {
+        for (final statement in [..._schemaV1, ..._schemaV2, ..._schemaV3, ..._schemaV4, ..._schemaV5]) {
           batch.execute(statement);
         }
         _seedCategories(batch);
@@ -51,6 +51,11 @@ class SqlCipherStoreFactory implements LocalStoreFactory {
         }
         if (from < 4) {
           for (final statement in _schemaV4) {
+            batch.execute(statement);
+          }
+        }
+        if (from < 5) {
+          for (final statement in _schemaV5) {
             batch.execute(statement);
           }
         }
@@ -144,6 +149,46 @@ class SqlCipherStoreFactory implements LocalStoreFactory {
     'CREATE INDEX movements_batch ON movements(batch_id)',
   ];
 
+  /// Etapa 2: perfil (alcunha, foto), compromissos recorrentes, orçamentos
+  /// e objetivos.
+  static const _schemaV5 = [
+    'ALTER TABLE profile ADD COLUMN nickname TEXT',
+    'ALTER TABLE profile ADD COLUMN photo BLOB',
+    "ALTER TABLE commitments ADD COLUMN recurrence TEXT NOT NULL DEFAULT 'none'",
+    'ALTER TABLE commitments ADD COLUMN series_id TEXT',
+    'ALTER TABLE commitments ADD COLUMN anchor_day INTEGER',
+    '''
+    CREATE TABLE budgets (
+      id TEXT PRIMARY KEY,
+      category_id TEXT REFERENCES categories(id),
+      amount_minor INTEGER NOT NULL CHECK (amount_minor > 0),
+      currency TEXT NOT NULL,
+      start_month TEXT NOT NULL,
+      carry_over INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL
+    )''',
+    '''
+    CREATE TABLE goals (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      target_minor INTEGER NOT NULL CHECK (target_minor > 0),
+      currency TEXT NOT NULL,
+      deadline TEXT,
+      account_id TEXT REFERENCES accounts(id),
+      archived INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL
+    )''',
+    '''
+    CREATE TABLE goal_contributions (
+      id TEXT PRIMARY KEY,
+      goal_id TEXT NOT NULL REFERENCES goals(id),
+      amount_minor INTEGER NOT NULL,
+      currency TEXT NOT NULL,
+      date TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )''',
+  ];
+
   static const _schemaV1 = [
     '''
     CREATE TABLE profile (
@@ -178,9 +223,12 @@ class _SqlCipherStore implements LocalStore {
     final rows = await _db.query('profile', where: 'id = 1');
     if (rows.isEmpty) return null;
     final row = rows.first;
+    final photo = row['photo'];
     return Profile(
       name: row['name']! as String,
       mainCurrency: Currency.fromCode(row['main_currency']! as String),
+      nickname: row['nickname'] as String?,
+      photo: photo is Uint8List ? photo : photo is List<int> ? Uint8List.fromList(photo) : null,
     );
   }
 
@@ -288,6 +336,9 @@ class _SqlCipherStore implements LocalStore {
           dueDate: DateTime.parse(r['due_date']! as String),
           status: CommitmentStatus.fromCode(r['status']! as String),
           paidMovementId: r['paid_movement_id'] as String?,
+          recurrence: Recurrence.fromCode(r['recurrence'] as String?),
+          seriesId: r['series_id'] as String?,
+          anchorDay: r['anchor_day'] as int?,
           createdAt: DateTime.fromMillisecondsSinceEpoch(r['created_at']! as int),
         ),
     ];
@@ -304,6 +355,9 @@ class _SqlCipherStore implements LocalStore {
         'due_date': _date(c.dueDate),
         'status': c.status.code,
         'paid_movement_id': c.paidMovementId,
+        'recurrence': c.recurrence.code,
+        'series_id': c.seriesId,
+        'anchor_day': c.anchorDay,
         'created_at': c.createdAt.millisecondsSinceEpoch,
       };
 
@@ -340,6 +394,115 @@ class _SqlCipherStore implements LocalStore {
       where: 'id = ?',
       whereArgs: [id],
     );
+  }
+
+  @override
+  Future<void> updateProfile(Profile profile) async {
+    await _db.update(
+      'profile',
+      {'name': profile.name, 'nickname': profile.nickname, 'photo': profile.photo},
+      where: 'id = 1',
+    );
+  }
+
+  @override
+  Future<List<Budget>> budgets() async {
+    final rows = await _db.query('budgets', orderBy: 'created_at');
+    return [
+      for (final r in rows)
+        Budget(
+          id: r['id']! as String,
+          categoryId: r['category_id'] as String?,
+          amount: Money(r['amount_minor']! as int, Currency.fromCode(r['currency']! as String)),
+          startMonth: DateTime.parse(r['start_month']! as String),
+          carryOver: r['carry_over'] == 1,
+          createdAt: DateTime.fromMillisecondsSinceEpoch(r['created_at']! as int),
+        ),
+    ];
+  }
+
+  @override
+  Future<void> saveBudget(Budget b) async {
+    await _db.insert(
+      'budgets',
+      {
+        'id': b.id,
+        'category_id': b.categoryId,
+        'amount_minor': b.amount.minor,
+        'currency': b.amount.currency.code,
+        'start_month': _date(b.startMonth),
+        'carry_over': b.carryOver ? 1 : 0,
+        'created_at': b.createdAt.millisecondsSinceEpoch,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  @override
+  Future<void> deleteBudget(String id) async {
+    await _db.delete('budgets', where: 'id = ?', whereArgs: [id]);
+  }
+
+  @override
+  Future<List<Goal>> goals() async {
+    final rows = await _db.query('goals', orderBy: 'created_at');
+    return [
+      for (final r in rows)
+        Goal(
+          id: r['id']! as String,
+          name: r['name']! as String,
+          target: Money(r['target_minor']! as int, Currency.fromCode(r['currency']! as String)),
+          deadline: r['deadline'] == null ? null : DateTime.parse(r['deadline']! as String),
+          accountId: r['account_id'] as String?,
+          archived: r['archived'] == 1,
+          createdAt: DateTime.fromMillisecondsSinceEpoch(r['created_at']! as int),
+        ),
+    ];
+  }
+
+  @override
+  Future<void> saveGoal(Goal g) async {
+    await _db.insert(
+      'goals',
+      {
+        'id': g.id,
+        'name': g.name,
+        'target_minor': g.target.minor,
+        'currency': g.target.currency.code,
+        'deadline': g.deadline == null ? null : _date(g.deadline!),
+        'account_id': g.accountId,
+        'archived': g.archived ? 1 : 0,
+        'created_at': g.createdAt.millisecondsSinceEpoch,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  @override
+  Future<List<GoalContribution>> goalContributions() async {
+    final rows = await _db.query('goal_contributions', orderBy: 'date, created_at');
+    return [
+      for (final r in rows)
+        GoalContribution(
+          id: r['id']! as String,
+          goalId: r['goal_id']! as String,
+          amount: Money(r['amount_minor']! as int, Currency.fromCode(r['currency']! as String)),
+          date: DateTime.parse(r['date']! as String),
+          createdAt: DateTime.fromMillisecondsSinceEpoch(r['created_at']! as int),
+        ),
+    ];
+  }
+
+  @override
+  Future<void> addGoalContribution(GoalContribution c) async {
+    await _db.insert('goal_contributions', {
+      'id': c.id,
+      'goal_id': c.goalId,
+      'amount_minor': c.amount.minor,
+      'currency': c.amount.currency.code,
+      'date': _date(c.date),
+      'created_at': c.createdAt.millisecondsSinceEpoch,
+    });
   }
 
   @override

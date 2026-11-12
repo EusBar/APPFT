@@ -15,6 +15,37 @@ enum CommitmentStatus {
       );
 }
 
+/// Repetição de um compromisso (secção 6: movimentos recorrentes).
+enum Recurrence {
+  none('none'),
+  weekly('weekly'),
+  monthly('monthly'),
+  yearly('yearly');
+
+  const Recurrence(this.code);
+  final String code;
+
+  static Recurrence fromCode(String? code) =>
+      values.firstWhere((r) => r.code == code, orElse: () => Recurrence.none);
+
+  /// Próxima data a partir de [from]. Nos meses curtos, o dia 31 passa a ser
+  /// o último dia do mês; [anchorDay] mantém o dia original da série.
+  DateTime? next(DateTime from, {int? anchorDay}) {
+    final day = anchorDay ?? from.day;
+    DateTime clamp(int y, int m) {
+      final last = DateTime(y, m + 1, 0).day;
+      return DateTime(y, m, day > last ? last : day);
+    }
+
+    return switch (this) {
+      Recurrence.none => null,
+      Recurrence.weekly => DateTime(from.year, from.month, from.day + 7),
+      Recurrence.monthly => clamp(from.year, from.month + 1),
+      Recurrence.yearly => clamp(from.year + 1, from.month),
+    };
+  }
+}
+
 /// Pagamento previsto: reduz o saldo disponível, não o contabilístico.
 /// Ao ser pago gera uma saída ligada ([paidMovementId]) e deixa de contar
 /// como pendente: nunca é descontado duas vezes.
@@ -29,6 +60,9 @@ class Commitment {
     required DateTime dueDate,
     this.status = CommitmentStatus.pending,
     this.paidMovementId,
+    this.recurrence = Recurrence.none,
+    this.seriesId,
+    this.anchorDay,
     required this.createdAt,
   })  : description = description.trim().replaceAll(RegExp(r'\s+'), ' '),
         note = note.trim(),
@@ -56,7 +90,34 @@ class Commitment {
   final DateTime dueDate;
   final CommitmentStatus status;
   final String? paidMovementId;
+  final Recurrence recurrence;
+
+  /// Identifica a série de um compromisso recorrente.
+  final String? seriesId;
+
+  /// Dia do mês original da série (ex.: 31), para não "encolher" depois de
+  /// fevereiro.
+  final int? anchorDay;
   final DateTime createdAt;
+
+  /// Próxima ocorrência de uma série, pendente, com novo [id].
+  Commitment? nextOccurrence({required String id, required DateTime createdAt}) {
+    final due = recurrence.next(dueDate, anchorDay: anchorDay ?? dueDate.day);
+    if (due == null) return null;
+    return Commitment(
+      id: id,
+      accountId: accountId,
+      amount: amount,
+      categoryId: categoryId,
+      description: description,
+      note: note,
+      dueDate: due,
+      recurrence: recurrence,
+      seriesId: seriesId ?? this.id,
+      anchorDay: anchorDay ?? dueDate.day,
+      createdAt: createdAt,
+    );
+  }
 
   /// Volta a pendente (ex.: o pagamento foi anulado no livro-razão).
   Commitment asPending() => Commitment(
@@ -67,6 +128,9 @@ class Commitment {
         description: description,
         note: note,
         dueDate: dueDate,
+        recurrence: recurrence,
+        seriesId: seriesId,
+        anchorDay: anchorDay,
         createdAt: createdAt,
       );
 
@@ -79,6 +143,7 @@ class Commitment {
     DateTime? dueDate,
     CommitmentStatus? status,
     String? paidMovementId,
+    Recurrence? recurrence,
   }) =>
       Commitment(
         id: id,
@@ -90,6 +155,9 @@ class Commitment {
         dueDate: dueDate ?? this.dueDate,
         status: status ?? this.status,
         paidMovementId: paidMovementId ?? this.paidMovementId,
+        recurrence: recurrence ?? this.recurrence,
+        seriesId: seriesId,
+        anchorDay: anchorDay,
         createdAt: createdAt,
       );
 }

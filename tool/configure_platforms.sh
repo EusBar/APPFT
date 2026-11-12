@@ -13,6 +13,12 @@ grep -q 'USE_BIOMETRIC' "$manifest" || sed -i \
 grep -q 'android:allowBackup' "$manifest" || sed -i \
   's#<application#<application android:allowBackup="false" android:fullBackupContent="false"#' "$manifest"
 
+# Uma única janela: o modelo do Flutter usa taskAffinity="" e singleTop, o que
+# abre tarefas separadas consoante a origem (instalador, ícone, partilha).
+sed -i 's/ android:taskAffinity=""//; s/android:taskAffinity=""//' "$manifest"
+sed -i 's/android:launchMode="singleTop"/android:launchMode="singleTask"/' "$manifest"
+grep -n 'launchMode\|taskAffinity' "$manifest" || true
+
 gradle=android/app/build.gradle.kts
 sed -i -E 's/minSdk = flutter\.minSdkVersion/minSdk = maxOf(flutter.minSdkVersion, 24)/' "$gradle"
 

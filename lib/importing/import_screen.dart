@@ -118,6 +118,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
       batchId: _batchId,
       newId: newId,
       now: () => tick = tick.add(const Duration(milliseconds: 1)),
+      suggest: (description, kind) => data.suggester.suggest(description, kind, data.categories),
     );
   }
 

@@ -271,6 +271,81 @@ void main() {
     expect(find.text('Carteira errada'), findsNothing);
   });
 
+  testWidgets('perfil: alcunha muda a saudação', (tester) async {
+    await setUpUser(tester);
+    await tester.tap(find.byTooltip('Perfil'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('profile-nickname')), 'EMBK');
+    await tapText(tester, 'Guardar perfil');
+    expect(data.profile?.nickname, 'EMBK');
+    expect(data.profile?.name, 'Eusébio');
+    expect(find.text('Olá, EMBK'), findsOneWidget);
+  });
+
+  testWidgets('orçamento global e objetivo com marco de 25%', (tester) async {
+    await setUpUser(tester);
+    await tester.tap(find.text('Planear'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Orçamentos'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Orçamento'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('budget-amount')), '50 000');
+    await tapText(tester, 'Guardar orçamento');
+    expect(data.budgetsById.values.single.isGlobal, isTrue);
+    expect(find.text('Todas as despesas'), findsOneWidget);
+
+    await tester.tap(find.text('Objetivos'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Objetivo'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('goal-name')), 'Viagem');
+    await tester.enterText(find.byKey(const Key('goal-target')), '100 000');
+    await tapText(tester, 'Guardar objetivo');
+    expect(data.goalsById, hasLength(1));
+
+    await tester.tap(find.text('Viagem'));
+    await tester.pumpAndSettle();
+    await tapText(tester, 'Juntar');
+    await tester.enterText(find.byType(TextField).last, '30 000');
+    await tester.tap(find.text('Registar'));
+    await tester.pumpAndSettle();
+    expect(data.contributions.single.amount, const Money(3000000, Currency.aoa));
+    expect(find.textContaining('25%'), findsWidgets);
+  });
+
+  testWidgets('compromisso mensal: pagar prepara o do mês seguinte', (tester) async {
+    await setUpUser(tester);
+    await tester.tap(find.text('Planear'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Compromisso'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('commitment-description')), 'Internet');
+    await tester.enterText(find.byKey(const Key('commitment-amount')), '15 000');
+    await tester.tap(find.text('Não se repete'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Todos os meses').last);
+    await tester.pumpAndSettle();
+    await tapText(tester, 'Despesas domésticas');
+    await tapText(tester, 'Guardar compromisso');
+
+    final first = data.commitmentsById.values.single;
+    expect(first.recurrence, Recurrence.monthly);
+
+    await tester.tap(find.text('Internet'));
+    await tester.pumpAndSettle();
+    await tapText(tester, 'Marcar como pago');
+    await tester.tap(find.text('Confirmar pagamento'));
+    await tester.pumpAndSettle();
+
+    expect(data.ledger, hasLength(1));
+    final pending = data.commitmentsById.values.where((c) => c.status == CommitmentStatus.pending).toList();
+    expect(pending, hasLength(1), reason: 'a próxima ocorrência fica pendente, nunca paga');
+    expect(pending.single.dueDate, Recurrence.monthly.next(first.dueDate));
+    expect(pending.single.seriesId, first.id);
+  });
+
   testWidgets('biometria: ativar com PIN e desbloquear sem PIN', (tester) async {
     await setUpUser(tester);
 

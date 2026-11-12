@@ -105,3 +105,10 @@ String horizonLabel(AvailableHorizon h) => switch (h) {
       AvailableHorizon.days30 => 'Próximos 30 dias',
       AvailableHorizon.days90 => 'Próximos 90 dias',
     };
+
+String recurrenceLabel(Recurrence r) => switch (r) {
+      Recurrence.none => 'Não se repete',
+      Recurrence.weekly => 'Todas as semanas',
+      Recurrence.monthly => 'Todos os meses',
+      Recurrence.yearly => 'Todos os anos',
+    };

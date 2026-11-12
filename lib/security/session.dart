@@ -204,6 +204,13 @@ class SessionController extends Notifier<SessionState> {
     state = state.copyWith(status: SessionStatus.unlocked, profile: profile);
   }
 
+  Future<void> updateProfile(Profile profile) async {
+    final store = _store;
+    if (store == null) throw StateError('App bloqueado');
+    await store.updateProfile(profile);
+    state = state.copyWith(profile: profile);
+  }
+
   void lock() {
     final store = _store;
     _store = null;
