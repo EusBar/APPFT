@@ -120,6 +120,11 @@ void main() {
     expect(data.profile?.mainCurrency, Currency.aoa);
     expect(data.stored.single.openingBalance, const Money(1250050, Currency.aoa));
     expect(data.openedWith, hasLength(32));
+    await tester.scrollUntilVisible(
+      find.text('Conta à ordem'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Conta à ordem'), findsOneWidget);
 
     // Modo discreto oculta os valores.
@@ -355,8 +360,7 @@ void main() {
     await tester.scrollUntilVisible(find.text('PLANEAR'), 200, scrollable: find.byType(Scrollable).first);
     expect(find.text('Nada pendente'), findsOneWidget);
     expect(find.text('Definir'), findsOneWidget);
-    await tester.tap(find.text('Kixikila'));
-    await tester.pumpAndSettle();
+    await tapText(tester, 'Kixikila');
     expect(find.textContaining('Acompanhe a sua Kixikila'), findsOneWidget);
   });
 
