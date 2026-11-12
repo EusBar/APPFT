@@ -21,7 +21,7 @@ App de gestão e inteligência financeira pessoal (Android e iOS, Flutter), cons
 - `lib/finance/`: novo movimento, correção (estorno + novo registo), anulação, histórico com pesquisa e filtros
 - `lib/planning/`: compromissos — criar, editar, pagar (gera a saída ligada), cancelar
 - `lib/home/`: Início (saldo disponível com horizonte, dicas rotativas, fluxo do mês, próximos compromissos, contas, recentes), Movimentos, Planear, Contas
-- fundos com pontos turísticos da região da moeda principal (5 por moeda; Angola em preparação)
+- fundos com pontos turísticos da região da moeda principal (5 por moeda)
 - `lib/design/`: design system, fundos fotográficos desfocados, textos em português
 - `tool/configure_platforms.sh`: nome FINTRACK, ícone, biometria e tema nas pastas Android/iOS geradas no CI
 
@@ -32,11 +32,11 @@ App de gestão e inteligência financeira pessoal (Android e iOS, Flutter), cons
 - Sem conta na nuvem, 10 falhas de PIN só se resolvem repondo o app.
 - O APK é assinado com uma chave de teste gerada em cada compilação: para atualizar, desinstale a versão anterior (perde os dados de teste).
 
-**A seguir:** fotografias de Angola; gerir categorias e arquivar contas; Fase 4 — dashboard completo, relatórios PDF/CSV e importação.
+**A seguir:** chave de assinatura fixa; gerir categorias e arquivar contas; Fase 4 — dashboard completo, relatórios PDF/CSV e importação.
 
 ## Créditos
 
-Fotografias de fundo: [Unsplash](https://unsplash.com) (Licença Unsplash), desfocadas e reduzidas.
+Fotografias de fundo: [Unsplash](https://unsplash.com) (Licença Unsplash) e, para Angola, fornecidas pelo autor do projeto. Desfocadas e reduzidas.
 
 ## Compilação
 

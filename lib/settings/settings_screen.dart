@@ -137,7 +137,7 @@ class SettingsScreen extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.photo_library_outlined),
             title: const Text('Créditos das fotografias'),
-            subtitle: const Text('Unsplash · Licença Unsplash'),
+            subtitle: const Text('Unsplash e autor do projeto'),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(builder: (_) => const _PhotoCreditsScreen()),
             ),
@@ -239,8 +239,8 @@ class _PhotoCreditsScreen extends StatelessWidget {
         padding: const EdgeInsets.all(FtSpace.md),
         children: [
           Text(
-            'Fotografias do Unsplash, usadas ao abrigo da Licença Unsplash, '
-            'desfocadas e reduzidas para o fundo do FINTRACK.',
+            'Fotografias do Unsplash (Licença Unsplash) e, para Angola, fornecidas '
+            'pelo autor do projeto. Desfocadas e reduzidas para o fundo do FINTRACK.',
             style: theme.textTheme.bodySmall,
           ),
           for (final entry in countryPhotos.entries) ...[
@@ -256,7 +256,11 @@ class _PhotoCreditsScreen extends StatelessWidget {
                 dense: true,
                 contentPadding: EdgeInsets.zero,
                 title: Text(p.place),
-                subtitle: Text('Unsplash · imagem ${p.unsplashId}'),
+                subtitle: Text(
+                  p.unsplashId == null
+                      ? 'Fornecida pelo autor do projeto'
+                      : 'Unsplash · imagem ${p.unsplashId}',
+                ),
               ),
           ],
         ],

@@ -2,13 +2,14 @@ import 'package:fintrack_core/fintrack_core.dart';
 
 /// Fotografia de um ponto turístico, associada a uma moeda.
 class CountryPhoto {
-  const CountryPhoto(this.asset, this.place, this.unsplashId);
+  const CountryPhoto(this.asset, this.place, [this.unsplashId]);
 
   final String asset;
   final String place;
 
-  /// Identificador da fotografia no Unsplash (Licença Unsplash).
-  final String unsplashId;
+  /// Identificador da fotografia no Unsplash (Licença Unsplash); `null` nas
+  /// fotografias fornecidas pelo autor do projeto.
+  final String? unsplashId;
 }
 
 /// Região mostrada para cada moeda.
@@ -22,9 +23,15 @@ String currencyRegion(Currency c) => switch (c.code) {
       _ => c.code,
     };
 
-/// Cinco maravilhas por moeda, já desfocadas e reduzidas. Angola ainda não
-/// tem fotografias: usa o repertório de finanças até chegarem.
+/// Cinco maravilhas por moeda, já desfocadas e reduzidas.
 const Map<String, List<CountryPhoto>> countryPhotos = {
+  'AOA': [
+    CountryPhoto('assets/backgrounds/countries/aoa_1.jpg', 'Quedas de Kalandula, Malanje'),
+    CountryPhoto('assets/backgrounds/countries/aoa_2.jpg', 'Miradouro da Lua, Luanda'),
+    CountryPhoto('assets/backgrounds/countries/aoa_3.jpg', 'Serra da Leba, Huíla'),
+    CountryPhoto('assets/backgrounds/countries/aoa_4.jpg', 'Marginal de Luanda'),
+    CountryPhoto('assets/backgrounds/countries/aoa_5.jpg', 'Fortaleza de São Miguel, Luanda'),
+  ],
   'USD': [
     CountryPhoto('assets/backgrounds/countries/usd_1.jpg', 'Estátua da Liberdade, Nova Iorque', '1485738422979-f5c462d49f74'),
     CountryPhoto('assets/backgrounds/countries/usd_2.jpg', 'Ponte Golden Gate, São Francisco', '1501594907352-04cda38ebc29'),
