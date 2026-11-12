@@ -12,10 +12,10 @@ s = gradle.read_text()
 if "ftKeystoreProps" not in s:
     header = '''
 // FINTRACK: chave de assinatura fixa (lida de android/key.properties no CI).
-val ftKeystoreProps = java.util.Properties()
+val ftKeystoreProps = Properties()
 val ftKeystoreFile = rootProject.file("key.properties")
 if (ftKeystoreFile.exists()) {
-    ftKeystoreFile.inputStream().use { ftKeystoreProps.load(it) }
+    FileInputStream(ftKeystoreFile).use { stream -> ftKeystoreProps.load(stream) }
 }
 '''
     # Depois do bloco plugins { ... } (tem de ser o primeiro bloco do ficheiro).
@@ -23,6 +23,8 @@ if (ftKeystoreFile.exists()) {
     if not m:
         raise SystemExit("bloco plugins não encontrado em build.gradle.kts")
     s = s[: m.end()] + header + s[m.end():]
+    # Os imports do Kotlin Script têm de ficar no topo do ficheiro.
+    s = "import java.io.FileInputStream\nimport java.util.Properties\n\n" + s
 
     signing = '''    signingConfigs {
         create("release") {
