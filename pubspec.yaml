@@ -1,7 +1,7 @@
 name: fintrack
 description: "FINTRACK — Your Money. Under Control."
 publish_to: none
-version: 0.3.0+3
+version: 0.4.0+4
 
 environment:
   sdk: ^3.5.0
@@ -9,6 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  biometric_storage: ^5.0.1
   cryptography: ^2.7.0
   fintrack_core:
     path: packages/fintrack_core
@@ -18,9 +19,21 @@ dependencies:
   sqflite_sqlcipher: ^3.1.0
 
 dev_dependencies:
+  flutter_launcher_icons: ^0.14.4
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/backgrounds/
+
+# Ícone do app (gerado no CI com `dart run flutter_launcher_icons`).
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/icon/icon.png
+  adaptive_icon_background: "#0B0F14"
+  adaptive_icon_foreground: assets/icon/foreground.png
+  remove_alpha_ios: true

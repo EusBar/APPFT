@@ -20,6 +20,15 @@ abstract interface class LocalStore {
 
   Future<void> addAccount(Account account);
 
+  Future<List<Category>> categories();
+
+  /// Todos os registos do livro-razão, estornos incluídos.
+  Future<List<Movement>> movements();
+
+  /// Acrescenta registos numa única transação (ex.: estorno + correção).
+  /// Os registos nunca se alteram nem se apagam.
+  Future<void> append(List<Movement> records);
+
   Future<void> close();
 }
 
@@ -36,6 +45,7 @@ abstract interface class LocalStoreFactory {
 class MemoryLocalStore implements LocalStore, LocalStoreFactory {
   Profile? profile;
   final List<Account> stored = [];
+  final List<Movement> ledger = [];
   Uint8List? openedWith;
   bool closed = false;
 
@@ -50,6 +60,7 @@ class MemoryLocalStore implements LocalStore, LocalStoreFactory {
   Future<void> wipe() async {
     profile = null;
     stored.clear();
+    ledger.clear();
   }
 
   @override
@@ -66,6 +77,21 @@ class MemoryLocalStore implements LocalStore, LocalStoreFactory {
 
   @override
   Future<void> addAccount(Account account) async => stored.add(account);
+
+  @override
+  Future<List<Category>> categories() async => Category.defaults;
+
+  @override
+  Future<List<Movement>> movements() async => List.unmodifiable(ledger);
+
+  @override
+  Future<void> append(List<Movement> records) async {
+    final ids = ledger.map((m) => m.id).toSet();
+    for (final r in records) {
+      if (!ids.add(r.id)) throw StateError('Registo duplicado: ${r.id}');
+    }
+    ledger.addAll(records);
+  }
 
   @override
   Future<void> close() async => closed = true;

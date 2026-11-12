@@ -6,32 +6,33 @@ App de gestão e inteligência financeira pessoal (Android e iOS, Flutter), cons
 
 ## Estado
 
-**Fase 1 — Fundação (v0.3.0)**
+**Fase 1 — Fundação** ✅ · **Fase 2 — Gestão financeira (v0.4.0)**
 
 - `packages/fintrack_core`: núcleo em Dart puro, sem UI
-  - `Money`: valores em inteiros na unidade mínima, formato `1 234 567,89 Kz`
-  - `Currency`: AOA, USD, EUR, BRL, GBP, ZAR
-  - `Account` e `AccountType`: banco, numerário, carteira móvel, cartão, poupança
-  - `Balances`: totais por moeda, sem nunca somar moedas diferentes; poupança fora do disponível
-  - `PinPolicy`, `LockoutPolicy`, `AutoLockPolicy`, `NameRules`, `newId` (UUID v4)
-- `lib/design/`: design system (tokens, cores semânticas, temas claro e escuro) e textos em português
-- `lib/security/`: desbloqueio local
-  - `PinVault`: Argon2id + AES-256-GCM; o PIN nunca é guardado; segredos no Keystore/Keychain
-  - criação e confirmação do PIN, ecrã de bloqueio com contagem decrescente
-  - bloqueio automático configurável, capa de privacidade, modo discreto
-- `lib/data/`: base de dados local cifrada com **SQLCipher** (AES-256); a chave de 256 bits só é libertada pelo PIN
-- `lib/onboarding/`: nome, moeda principal e primeira conta, em três passos
-- `lib/home/`: saldo disponível, total e lista de contas; criar novas contas
-- `lib/settings/`: bloqueio automático (imediato, 1, 5 ou 15 min) e apagar tudo
+  - `Money` (inteiros na unidade mínima), `Currency` (AOA, USD, EUR, BRL, GBP, ZAR)
+  - `Account`, `AccountType`, `Category` (categorias iniciais da secção 7)
+  - `Movement`: entrada, saída e transferência própria (com valor enviado e recebido)
+  - `Ledger`: livro-razão imutável — saldos, totais do período, validação, estornos, duplicados
+  - testes de propriedades: transferências não alteram o consolidado; recalcular dá sempre o mesmo
+- `lib/security/`: PIN (Argon2id + AES-256-GCM), **biometria** (chave guardada no Keystore/Keychain com autenticação biométrica obrigatória), bloqueio automático, modo discreto
+- `lib/data/`: base SQLCipher (AES-256). Gatilhos impedem alterar ou apagar movimentos; cada um só pode ser estornado uma vez
+- `lib/finance/`: novo movimento, correção (estorno + novo registo), anulação, histórico com pesquisa e filtros
+- `lib/home/`: Início (saldo disponível, entradas e saídas do mês, contas, recentes), Movimentos, Contas
+- `lib/design/`: design system, fundos fotográficos desfocados, textos em português
+- `tool/configure_platforms.sh`: nome FINTRACK, ícone, biometria e tema nas pastas Android/iOS geradas no CI
 
 **Limitações conhecidas**
 
-- O limite de tentativas é aplicado por software e usa o relógio do dispositivo; ainda não é imposto por hardware.
-- A capa de privacidade é desenhada pelo Flutter; falta o `FLAG_SECURE` nativo no Android.
+- O limite de tentativas do PIN é aplicado por software e usa o relógio do dispositivo.
+- Falta o `FLAG_SECURE` nativo no Android (a capa de privacidade é desenhada pelo Flutter).
 - Sem conta na nuvem, 10 falhas de PIN só se resolvem repondo o app.
-- Ainda não há movimentos: o saldo de cada conta é o saldo inicial.
+- O APK é assinado com uma chave de teste gerada em cada compilação: para atualizar, desinstale a versão anterior (perde os dados de teste).
 
-**A seguir na Fase 1:** biometria. Depois, Fase 2: movimentos (entradas, saídas, transferências) com livro-razão imutável.
+**A seguir na Fase 2:** gerir categorias (criar, editar, arquivar, fundir), etiquetas e arquivar contas. Depois, Fase 3: motor financeiro com compromissos e horizonte do saldo disponível.
+
+## Créditos
+
+Fotografias de fundo: [Unsplash](https://unsplash.com) (Licença Unsplash), desfocadas e reduzidas.
 
 ## Compilação
 

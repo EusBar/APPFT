@@ -118,6 +118,11 @@ ThemeData buildFintrackTheme(Brightness brightness) {
     useMaterial3: true,
     colorScheme: scheme,
     scaffoldBackgroundColor: scheme.surface,
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      scrolledUnderElevation: 0,
+    ),
     materialTapTargetSize: MaterialTapTargetSize.padded,
     extensions: [dark ? FtColors.dark : FtColors.light],
   );

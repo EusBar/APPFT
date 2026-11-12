@@ -2,6 +2,7 @@ import 'package:fintrack_core/fintrack_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../design/backdrop.dart';
 import '../design/tokens.dart';
 import 'pin_pad.dart';
 import 'session.dart';
@@ -68,7 +69,10 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
     final theme = Theme.of(context);
     final confirming = _first != null;
 
-    return Scaffold(
+    return FtBackdrop(
+      image: FtImage.createPin,
+      child: Scaffold(
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(FtSpace.lg),
@@ -109,6 +113,7 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

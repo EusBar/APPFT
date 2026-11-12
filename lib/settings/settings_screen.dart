@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../design/labels.dart';
 import '../design/tokens.dart';
+import '../security/pin_pad.dart';
 import '../security/session.dart';
 
 /// Definições de segurança.
@@ -44,6 +45,7 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final autoLock = ref.watch(sessionProvider.select((s) => s.autoLock));
+    final biometric = ref.watch(sessionProvider.select((s) => s.biometricEnabled));
     final controller = ref.read(sessionProvider.notifier);
 
     return Scaffold(
@@ -76,6 +78,32 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const Divider(),
+          SwitchListTile(
+            secondary: const Icon(Icons.fingerprint),
+            title: const Text('Desbloquear com biometria'),
+            subtitle: const Text('Impressão digital ou rosto, como atalho do PIN.'),
+            value: biometric,
+            onChanged: (on) async {
+              if (!on) {
+                await controller.disableBiometrics();
+                return;
+              }
+              final result = await Navigator.of(context).push<BiometricSetup>(
+                MaterialPageRoute(builder: (_) => const _EnableBiometricScreen()),
+              );
+              if (!context.mounted || result == null) return;
+              final text = switch (result) {
+                BiometricSetup.enabled => 'Biometria ativada.',
+                BiometricSetup.unavailable =>
+                  'Este telemóvel não tem biometria configurada. '
+                      'Registe uma impressão digital ou o rosto nas definições do telemóvel.',
+                BiometricSetup.failed => 'Não foi possível ativar a biometria.',
+                BiometricSetup.wrongPin => 'PIN incorreto.',
+              };
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+            },
+          ),
+          const Divider(),
           const ListTile(
             leading: Icon(Icons.enhanced_encryption_outlined),
             title: Text('Dados cifrados neste telemóvel'),
@@ -92,6 +120,66 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => _confirmReset(context, ref),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Pede o PIN para ativar a biometria: é o PIN que liberta a chave que fica
+/// guardada sob a impressão digital ou o rosto.
+class _EnableBiometricScreen extends ConsumerStatefulWidget {
+  const _EnableBiometricScreen();
+
+  @override
+  ConsumerState<_EnableBiometricScreen> createState() => _EnableBiometricScreenState();
+}
+
+class _EnableBiometricScreenState extends ConsumerState<_EnableBiometricScreen> {
+  String? _error;
+
+  Future<void> _onCompleted(String pin) async {
+    final result = await ref.read(sessionProvider.notifier).enableBiometrics(pin);
+    if (!mounted) return;
+    if (result == BiometricSetup.wrongPin) {
+      setState(() => _error = 'PIN incorreto. Tente de novo.');
+      return;
+    }
+    Navigator.of(context).pop(result);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Ativar biometria')),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(FtSpace.lg),
+          child: Column(
+            children: [
+              const Spacer(),
+              Text('Confirme o PIN', style: theme.textTheme.headlineSmall),
+              const SizedBox(height: FtSpace.sm),
+              Text(
+                'Depois, o telemóvel pede a impressão digital ou o rosto.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              SizedBox(
+                height: 56,
+                child: Center(
+                  child: _error == null
+                      ? null
+                      : Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
+                ),
+              ),
+              PinPad(onCompleted: _onCompleted),
+              const Spacer(),
+            ],
+          ),
+        ),
       ),
     );
   }

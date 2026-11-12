@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/local_store.dart';
 import '../data/sqlcipher_store.dart';
+import 'biometric_key_store.dart';
 import 'pin_vault.dart';
 import 'secret_store.dart';
 
@@ -20,6 +21,13 @@ final localStoreFactoryProvider = Provider<LocalStoreFactory>(
   (ref) => const SqlCipherStoreFactory(),
 );
 
+final biometricKeyStoreProvider = Provider<BiometricKeyStore>(
+  (ref) => const DeviceBiometricKeyStore(),
+);
+
+/// Resultado de ativar a biometria.
+enum BiometricSetup { enabled, wrongPin, unavailable, failed }
+
 enum SessionStatus { loading, needsPin, locked, onboarding, unlocked }
 
 class SessionState {
@@ -28,6 +36,7 @@ class SessionState {
     this.discreet = false,
     this.autoLock = AutoLockSetting.oneMinute,
     this.profile,
+    this.biometricEnabled = false,
   });
 
   final SessionStatus status;
@@ -41,18 +50,23 @@ class SessionState {
   /// Só existe com o app desbloqueado e o onboarding feito.
   final Profile? profile;
 
+  /// Desbloqueio por impressão digital ou rosto ativado neste telemóvel.
+  final bool biometricEnabled;
+
   SessionState copyWith({
     SessionStatus? status,
     bool? discreet,
     AutoLockSetting? autoLock,
     Profile? profile,
     bool clearProfile = false,
+    bool? biometricEnabled,
   }) =>
       SessionState(
         status: status ?? this.status,
         discreet: discreet ?? this.discreet,
         autoLock: autoLock ?? this.autoLock,
         profile: clearProfile ? null : profile ?? this.profile,
+        biometricEnabled: biometricEnabled ?? this.biometricEnabled,
       );
 }
 
@@ -62,6 +76,7 @@ final sessionProvider = NotifierProvider<SessionController, SessionState>(
 
 class SessionController extends Notifier<SessionState> {
   static const _kAutoLock = 'ft.settings.autoLock';
+  static const _kBiometric = 'ft.settings.biometric';
 
   LocalStore? _store;
   DateTime? _backgroundedAt;
@@ -83,9 +98,11 @@ class SessionController extends Notifier<SessionState> {
             .where((s) => s.name == savedLock)
             .firstOrNull ??
         AutoLockSetting.oneMinute;
+    final biometric = hasPin && await secrets.read(_kBiometric) == '1';
     state = state.copyWith(
       status: hasPin ? SessionStatus.locked : SessionStatus.needsPin,
       autoLock: autoLock,
+      biometricEnabled: biometric,
     );
   }
 
@@ -94,6 +111,9 @@ class SessionController extends Notifier<SessionState> {
     // Um PIN novo implica uma chave nova: restos de dados antigos seriam
     // ilegíveis, por isso apagam-se antes.
     await factory.wipe();
+    await ref.read(biometricKeyStoreProvider).clear();
+    await ref.read(secretStoreProvider).delete(_kBiometric);
+    state = state.copyWith(biometricEnabled: false);
     final key = await ref.read(pinVaultProvider).createPin(pin);
     await _openStore(key);
   }
@@ -102,6 +122,56 @@ class SessionController extends Notifier<SessionState> {
     final result = await ref.read(pinVaultProvider).unlock(pin);
     if (result is UnlockSuccess) await _openStore(result.dataKey);
     return result;
+  }
+
+  /// Desbloqueia com a chave guardada sob biometria. O limite de tentativas
+  /// do PIN continua a valer: atingido, a biometria deixa de servir.
+  Future<BiometricResult> unlockWithBiometrics() async {
+    if (!state.biometricEnabled) return const BiometricInvalidated();
+    if ((await ref.read(pinVaultProvider).status()).signInRequired) {
+      return const BiometricInvalidated();
+    }
+    final result = await ref.read(biometricKeyStoreProvider).load();
+    switch (result) {
+      case BiometricKey(:final dataKey):
+        try {
+          await _openStore(dataKey);
+        } catch (_) {
+          await disableBiometrics();
+          return const BiometricInvalidated();
+        }
+      case BiometricInvalidated():
+        await disableBiometrics();
+      case BiometricCancelled():
+        break;
+    }
+    return result;
+  }
+
+  /// Ativa a biometria. Pede o PIN outra vez: é ele que liberta a chave
+  /// que fica guardada sob biometria.
+  Future<BiometricSetup> enableBiometrics(String pin) async {
+    final bio = ref.read(biometricKeyStoreProvider);
+    if (!await bio.isAvailable()) return BiometricSetup.unavailable;
+    final result = await ref.read(pinVaultProvider).unlock(pin);
+    if (result is! UnlockSuccess) return BiometricSetup.wrongPin;
+    final key = result.dataKey;
+    try {
+      await bio.save(key);
+      await ref.read(secretStoreProvider).write(_kBiometric, '1');
+      state = state.copyWith(biometricEnabled: true);
+      return BiometricSetup.enabled;
+    } catch (_) {
+      return BiometricSetup.failed;
+    } finally {
+      key.fillRange(0, key.length, 0);
+    }
+  }
+
+  Future<void> disableBiometrics() async {
+    await ref.read(biometricKeyStoreProvider).clear();
+    await ref.read(secretStoreProvider).delete(_kBiometric);
+    state = state.copyWith(biometricEnabled: false);
   }
 
   Future<void> _openStore(Uint8List key) async {
@@ -170,6 +240,8 @@ class SessionController extends Notifier<SessionState> {
     await ref.read(localStoreFactoryProvider).wipe();
     await ref.read(pinVaultProvider).reset();
     await ref.read(secretStoreProvider).delete(_kAutoLock);
+    await ref.read(biometricKeyStoreProvider).clear();
+    await ref.read(secretStoreProvider).delete(_kBiometric);
     state = const SessionState(status: SessionStatus.needsPin);
   }
 }

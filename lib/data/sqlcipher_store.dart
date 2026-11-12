@@ -14,7 +14,7 @@ class SqlCipherStoreFactory implements LocalStoreFactory {
   const SqlCipherStoreFactory();
 
   static const _fileName = 'fintrack.db';
-  static const _version = 1;
+  static const _version = 2;
 
   Future<String> _path() async => p.join(await getDatabasesPath(), _fileName);
 
@@ -30,8 +30,19 @@ class SqlCipherStoreFactory implements LocalStoreFactory {
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
       onCreate: (db, version) async {
         final batch = db.batch();
-        for (final statement in _schemaV1) {
+        for (final statement in [..._schemaV1, ..._schemaV2]) {
           batch.execute(statement);
+        }
+        _seedCategories(batch);
+        await batch.commit(noResult: true);
+      },
+      onUpgrade: (db, from, to) async {
+        final batch = db.batch();
+        if (from < 2) {
+          for (final statement in _schemaV2) {
+            batch.execute(statement);
+          }
+          _seedCategories(batch);
         }
         await batch.commit(noResult: true);
       },
@@ -41,6 +52,60 @@ class SqlCipherStoreFactory implements LocalStoreFactory {
 
   @override
   Future<void> wipe() async => deleteDatabase(await _path());
+
+  static void _seedCategories(Batch batch) {
+    for (final (i, c) in Category.defaults.indexed) {
+      batch.insert('categories', {
+        'id': c.id,
+        'kind': c.kind.code,
+        'name': c.name,
+        'icon': c.icon,
+        'archived': 0,
+        'sort': i,
+      });
+    }
+  }
+
+  /// Fase 2: categorias e livro-razão imutável. Os gatilhos impedem alterar
+  /// ou apagar registos; cada registo só pode ser estornado uma vez.
+  static const _schemaV2 = [
+    '''
+    CREATE TABLE categories (
+      id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL,
+      name TEXT NOT NULL,
+      icon TEXT NOT NULL,
+      archived INTEGER NOT NULL DEFAULT 0,
+      sort INTEGER NOT NULL
+    )''',
+    '''
+    CREATE TABLE movements (
+      id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL,
+      account_id TEXT NOT NULL REFERENCES accounts(id),
+      amount_minor INTEGER NOT NULL CHECK (amount_minor > 0),
+      currency TEXT NOT NULL,
+      to_account_id TEXT REFERENCES accounts(id),
+      to_amount_minor INTEGER,
+      to_currency TEXT,
+      category_id TEXT REFERENCES categories(id),
+      description TEXT NOT NULL,
+      note TEXT NOT NULL,
+      date TEXT NOT NULL,
+      origin TEXT NOT NULL,
+      reverses_id TEXT UNIQUE REFERENCES movements(id),
+      replaces_id TEXT REFERENCES movements(id),
+      created_at INTEGER NOT NULL
+    )''',
+    'CREATE INDEX movements_account ON movements(account_id)',
+    'CREATE INDEX movements_date ON movements(date)',
+    '''
+    CREATE TRIGGER movements_immutable_update BEFORE UPDATE ON movements
+    BEGIN SELECT RAISE(ABORT, 'Livro-razão imutável: corrija com um estorno'); END''',
+    '''
+    CREATE TRIGGER movements_immutable_delete BEFORE DELETE ON movements
+    BEGIN SELECT RAISE(ABORT, 'Livro-razão imutável: corrija com um estorno'); END''',
+  ];
 
   static const _schemaV1 = [
     '''
@@ -107,7 +172,83 @@ class _SqlCipherStore implements LocalStore {
   }
 
   @override
+  Future<List<Category>> categories() async {
+    final rows = await _db.query('categories', orderBy: 'sort');
+    return [
+      for (final r in rows)
+        Category(
+          id: r['id']! as String,
+          kind: CategoryKind.fromCode(r['kind']! as String),
+          name: r['name']! as String,
+          icon: r['icon']! as String,
+          archived: r['archived'] == 1,
+        ),
+    ];
+  }
+
+  @override
+  Future<List<Movement>> movements() async {
+    final rows = await _db.query('movements', orderBy: 'created_at, rowid');
+    return [for (final r in rows) _movementFromRow(r)];
+  }
+
+  @override
+  Future<void> append(List<Movement> records) {
+    return _db.transaction((txn) async {
+      for (final m in records) {
+        await txn.insert(
+          'movements',
+          _movementRow(m),
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+      }
+    });
+  }
+
+  @override
   Future<void> close() => _db.close();
+
+  static Map<String, Object?> _movementRow(Movement m) => {
+        'id': m.id,
+        'kind': m.kind.code,
+        'account_id': m.accountId,
+        'amount_minor': m.amount.minor,
+        'currency': m.amount.currency.code,
+        'to_account_id': m.toAccountId,
+        'to_amount_minor': m.toAmount?.minor,
+        'to_currency': m.toAmount?.currency.code,
+        'category_id': m.categoryId,
+        'description': m.description,
+        'note': m.note,
+        'date': _date(m.date),
+        'origin': m.origin.code,
+        'reverses_id': m.reverses,
+        'replaces_id': m.replaces,
+        'created_at': m.createdAt.millisecondsSinceEpoch,
+      };
+
+  static Movement _movementFromRow(Map<String, Object?> r) {
+    final toMinor = r['to_amount_minor'] as int?;
+    final toCurrency = r['to_currency'] as String?;
+    return Movement(
+      id: r['id']! as String,
+      kind: MovementKind.fromCode(r['kind']! as String),
+      accountId: r['account_id']! as String,
+      amount: Money(r['amount_minor']! as int, Currency.fromCode(r['currency']! as String)),
+      toAccountId: r['to_account_id'] as String?,
+      toAmount: toMinor == null || toCurrency == null
+          ? null
+          : Money(toMinor, Currency.fromCode(toCurrency)),
+      categoryId: r['category_id'] as String?,
+      description: r['description']! as String,
+      note: r['note']! as String,
+      date: DateTime.parse(r['date']! as String),
+      origin: MovementOrigin.fromCode(r['origin']! as String),
+      reverses: r['reverses_id'] as String?,
+      replaces: r['replaces_id'] as String?,
+      createdAt: DateTime.fromMillisecondsSinceEpoch(r['created_at']! as int),
+    );
+  }
 
   static String _date(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-'

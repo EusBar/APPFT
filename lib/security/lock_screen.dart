@@ -4,7 +4,9 @@ import 'package:fintrack_core/fintrack_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../design/backdrop.dart';
 import '../design/tokens.dart';
+import 'biometric_key_store.dart';
 import 'pin_pad.dart';
 import 'pin_vault.dart';
 import 'session.dart';
@@ -35,13 +37,40 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     super.dispose();
   }
 
+  bool _bioBusy = false;
+
   Future<void> _loadStatus() async {
     final status = await ref.read(pinVaultProvider).status();
     if (!mounted) return;
     if (status.signInRequired) {
       setState(() => _limitReached = true);
-    } else if (status.remaining > Duration.zero) {
+      return;
+    }
+    if (status.remaining > Duration.zero) {
       _startCountdown(status.remaining);
+    }
+    // Com biometria ativa, o pedido abre logo; o PIN fica como alternativa.
+    if (ref.read(sessionProvider).biometricEnabled) _biometric();
+  }
+
+  Future<void> _biometric() async {
+    if (_bioBusy) return;
+    setState(() => _bioBusy = true);
+    final BiometricResult result;
+    try {
+      result = await ref.read(sessionProvider.notifier).unlockWithBiometrics();
+    } catch (_) {
+      if (mounted) setState(() => _bioBusy = false);
+      return;
+    } finally {
+      if (mounted) setState(() => _bioBusy = false);
+    }
+    if (!mounted) return;
+    if (result is BiometricInvalidated) {
+      setState(() {
+        _message = 'A biometria deixou de ser válida neste telemóvel. '
+            'Use o PIN e volte a ativá-la nas Definições.';
+      });
     }
   }
 
@@ -135,7 +164,12 @@ class _LockScreenState extends ConsumerState<LockScreen> {
           '${_clock(remaining.isNegative ? Duration.zero : remaining)}.';
     }
 
-    return Scaffold(
+    final biometric = ref.watch(sessionProvider.select((s) => s.biometricEnabled));
+
+    return FtBackdrop(
+      image: FtImage.lock,
+      child: Scaffold(
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(FtSpace.lg),
@@ -172,11 +206,18 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                   child: const Text('Repor o FINTRACK'),
                 )
               else
-                PinPad(onCompleted: _onCompleted, enabled: !waiting),
+                PinPad(
+                  onCompleted: _onCompleted,
+                  enabled: !waiting,
+                  onLeading: biometric ? _biometric : null,
+                  leadingIcon: Icons.fingerprint,
+                  leadingLabel: 'Desbloquear com impressão digital ou rosto',
+                ),
               const Spacer(),
             ],
           ),
         ),
+      ),
       ),
     );
   }

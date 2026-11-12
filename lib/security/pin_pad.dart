@@ -7,11 +7,23 @@ import '../design/tokens.dart';
 /// Teclado numérico com os 6 indicadores do PIN.
 ///
 /// Chama [onCompleted] ao sexto dígito e limpa-se quando a chamada termina.
+/// A tecla à esquerda do zero é uma ação extra (ex.: biometria); sem ela,
+/// apaga todos os dígitos.
 class PinPad extends StatefulWidget {
-  const PinPad({super.key, required this.onCompleted, this.enabled = true});
+  const PinPad({
+    super.key,
+    required this.onCompleted,
+    this.enabled = true,
+    this.leadingIcon,
+    this.leadingLabel,
+    this.onLeading,
+  });
 
   final Future<void> Function(String pin) onCompleted;
   final bool enabled;
+  final IconData? leadingIcon;
+  final String? leadingLabel;
+  final VoidCallback? onLeading;
 
   @override
   State<PinPad> createState() => _PinPadState();
@@ -40,6 +52,12 @@ class _PinPadState extends State<PinPad> {
         });
       }
     }
+  }
+
+  void _clear() {
+    if (!_active || _pin.isEmpty) return;
+    HapticFeedback.selectionClick();
+    setState(() => _pin = '');
   }
 
   void _backspace() {
@@ -106,7 +124,20 @@ class _PinPadState extends State<PinPad> {
                     _Key(label: d, onTap: () => _press(d)),
                 ]),
               row([
-                const SizedBox(width: _Key.extent, height: _Key.extent),
+                if (widget.onLeading != null)
+                  _Key(
+                    icon: widget.leadingIcon ?? Icons.fingerprint,
+                    semanticLabel: widget.leadingLabel ?? 'Desbloquear com biometria',
+                    onTap: () {
+                      if (!_busy) widget.onLeading!();
+                    },
+                  )
+                else
+                  _Key(
+                    icon: Icons.close,
+                    semanticLabel: 'Apagar todos os dígitos',
+                    onTap: _clear,
+                  ),
                 _Key(label: '0', onTap: () => _press('0')),
                 _Key(
                   icon: Icons.backspace_outlined,

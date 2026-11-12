@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/local_store.dart';
+import '../design/backdrop.dart';
 import '../design/labels.dart';
 import '../design/tokens.dart';
 import '../home/account_form.dart';
@@ -84,12 +85,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         ),
     };
 
+    final image = switch (_step) {
+      0 => FtImage.savings,
+      1 => FtImage.shopping,
+      _ => FtImage.payment,
+    };
+
     return PopScope(
       canPop: _step == 0,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop && _step > 0) setState(() => _step--);
       },
-      child: Scaffold(
+      child: FtBackdrop(
+        image: image,
+        child: Scaffold(
+        backgroundColor: Colors.transparent,
         appBar: AppBar(
           leading: _step == 0
               ? null
@@ -138,6 +148,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

@@ -33,8 +33,14 @@ jobs:
       - name: Gerar pastas de plataforma em falta
         run: flutter create --platforms=android,ios --org ao.fintrack --project-name fintrack .
 
+      - name: Configurar Android e iOS (nome, biometria, tema)
+        run: tool/configure_platforms.sh
+
       - name: Dependências
         run: flutter pub get
+
+      - name: Ícone do app
+        run: dart run flutter_launcher_icons
 
       - name: Análise
         run: flutter analyze --no-fatal-infos
