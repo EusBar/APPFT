@@ -180,6 +180,11 @@ void main() {
     expect(data.ledger, hasLength(1));
     expect(data.ledger.single.amount, const Money(250000, Currency.aoa));
     expect(find.text('97\u00A0500,00\u00A0Kz'), findsWidgets);
+    await tester.scrollUntilVisible(
+      find.text('Mercado'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Mercado'), findsOneWidget);
 
     // Anular cria um estorno; nada é apagado. Desliza para tirar a linha
