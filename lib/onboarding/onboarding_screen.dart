@@ -70,7 +70,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           _CurrencyStep(
             selected: _currency,
             onChanged: (c) => setState(() => _currency = c),
-            onDone: () => setState(() => _step = 2),
           ),
         ),
       _ => (
@@ -106,6 +105,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             child: LinearProgressIndicator(value: (_step + 1) / _steps),
           ),
         ),
+        // O botão de avançar fica sempre visível, ao alcance do polegar.
+        bottomNavigationBar: _step == 2
+            ? null
+            : SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(FtSpace.md),
+                  child: FilledButton(
+                    onPressed: _step == 0 ? _nextFromName : () => setState(() => _step = 2),
+                    child: const Text('Continuar'),
+                  ),
+                ),
+              ),
         body: SafeArea(
           child: ListView(
             padding: const EdgeInsets.all(FtSpace.lg),
@@ -119,7 +130,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 ),
               ),
               const SizedBox(height: FtSpace.lg),
-              AnimatedSwitcher(duration: FtMotion.base, child: KeyedSubtree(key: ValueKey(_step), child: body)),
+              body,
               if (_saveError != null) ...[
                 const SizedBox(height: FtSpace.md),
                 Text(_saveError!, style: TextStyle(color: theme.colorScheme.error)),
@@ -158,23 +169,16 @@ class _NameStep extends StatelessWidget {
             border: const OutlineInputBorder(),
           ),
         ),
-        const SizedBox(height: FtSpace.md),
-        FilledButton(onPressed: onDone, child: const Text('Continuar')),
       ],
     );
   }
 }
 
 class _CurrencyStep extends StatelessWidget {
-  const _CurrencyStep({
-    required this.selected,
-    required this.onChanged,
-    required this.onDone,
-  });
+  const _CurrencyStep({required this.selected, required this.onChanged});
 
   final Currency selected;
   final ValueChanged<Currency> onChanged;
-  final VoidCallback onDone;
 
   @override
   Widget build(BuildContext context) {
@@ -197,8 +201,6 @@ class _CurrencyStep extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: FtSpace.md),
-        FilledButton(onPressed: onDone, child: const Text('Continuar')),
       ],
     );
   }
