@@ -48,6 +48,14 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// Faz scroll até ao botão antes de tocar (o ecrã de teste é 800x600).
+  Future<void> tapText(WidgetTester tester, String text) async {
+    await tester.ensureVisible(find.text(text));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(text));
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('sem PIN, o app abre na criação do PIN', (tester) async {
     await pumpApp(tester);
     expect(find.text('Crie um PIN de 6 dígitos'), findsOneWidget);
@@ -77,24 +85,19 @@ void main() {
 
     // Passo 1: nome (vazio é recusado).
     expect(find.text('Como se chama?'), findsOneWidget);
-    await tester.tap(find.text('Continuar'));
-    await tester.pumpAndSettle();
+    await tapText(tester, 'Continuar');
     expect(find.text('Escreva o seu nome.'), findsOneWidget);
     await tester.enterText(find.byKey(const Key('profile-name')), '  Ana   Maria ');
-    await tester.tap(find.text('Continuar'));
-    await tester.pumpAndSettle();
+    await tapText(tester, 'Continuar');
 
     // Passo 2: moeda principal (Kwanza por defeito).
     expect(find.text('Moeda principal'), findsOneWidget);
-    await tester.tap(find.text('Continuar'));
-    await tester.pumpAndSettle();
+    await tapText(tester, 'Continuar');
 
     // Passo 3: primeira conta.
     expect(find.text('Primeira conta'), findsOneWidget);
     await tester.enterText(find.byKey(const Key('account-balance')), '12 500,5');
-    await tester.ensureVisible(find.text('Começar'));
-    await tester.tap(find.text('Começar'));
-    await tester.pumpAndSettle();
+    await tapText(tester, 'Começar');
 
     expect(find.text('Olá, Ana'), findsOneWidget);
     expect(data.profile?.name, 'Ana Maria');
@@ -125,15 +128,11 @@ void main() {
     await typePin(tester, '482917');
     await typePin(tester, '482917');
     await tester.enterText(find.byKey(const Key('profile-name')), 'Rui');
-    await tester.tap(find.text('Continuar'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Continuar'));
-    await tester.pumpAndSettle();
+    await tapText(tester, 'Continuar');
+    await tapText(tester, 'Continuar');
 
     await tester.enterText(find.byKey(const Key('account-balance')), '12,345');
-    await tester.ensureVisible(find.text('Começar'));
-    await tester.tap(find.text('Começar'));
-    await tester.pumpAndSettle();
+    await tapText(tester, 'Começar');
     expect(find.textContaining('Valor inválido'), findsOneWidget);
     expect(data.profile, isNull);
   });
