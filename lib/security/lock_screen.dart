@@ -173,9 +173,11 @@ class _LockScreenState extends ConsumerState<LockScreen> {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(FtSpace.lg),
-          child: Column(
+          child: Center(
+            child: SingleChildScrollView(
+              child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const Spacer(),
               Text(
                 'FINTRACK',
                 style: theme.textTheme.titleLarge?.copyWith(
@@ -213,8 +215,9 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                   leadingIcon: Icons.fingerprint,
                   leadingLabel: 'Desbloquear com impressão digital ou rosto',
                 ),
-              const Spacer(),
             ],
+          ),
+            ),
           ),
         ),
       ),

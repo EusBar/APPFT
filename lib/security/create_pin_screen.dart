@@ -76,9 +76,11 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(FtSpace.lg),
-          child: Column(
+          child: Center(
+            child: SingleChildScrollView(
+              child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const Spacer(),
               Text(
                 confirming ? 'Confirme o PIN' : 'Crie um PIN de 6 dígitos',
                 style: theme.textTheme.headlineSmall,
@@ -109,8 +111,9 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
                 ),
               ),
               PinPad(onCompleted: _onCompleted),
-              const Spacer(),
             ],
+          ),
+            ),
           ),
         ),
       ),

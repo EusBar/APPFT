@@ -155,9 +155,11 @@ class _EnableBiometricScreenState extends ConsumerState<_EnableBiometricScreen> 
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(FtSpace.lg),
-          child: Column(
+          child: Center(
+            child: SingleChildScrollView(
+              child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const Spacer(),
               Text('Confirme o PIN', style: theme.textTheme.headlineSmall),
               const SizedBox(height: FtSpace.sm),
               Text(
@@ -176,8 +178,9 @@ class _EnableBiometricScreenState extends ConsumerState<_EnableBiometricScreen> 
                 ),
               ),
               PinPad(onCompleted: _onCompleted),
-              const Spacer(),
             ],
+          ),
+            ),
           ),
         ),
       ),

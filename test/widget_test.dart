@@ -160,6 +160,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Novo movimento'), findsOneWidget);
     await tester.enterText(find.byKey(const Key('movement-amount')), '2 500');
+    await tester.scrollUntilVisible(
+      find.text('Alimentação'),
+      150,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tapText(tester, 'Alimentação');
     await tester.enterText(find.byKey(const Key('movement-description')), 'Mercado');
     await tapText(tester, 'Gravar');
