@@ -182,7 +182,10 @@ void main() {
     expect(find.text('97\u00A0500,00\u00A0Kz'), findsWidgets);
     expect(find.text('Mercado'), findsOneWidget);
 
-    // Anular cria um estorno; nada é apagado.
+    // Anular cria um estorno; nada é apagado. Desliza para tirar a linha
+    // de baixo do botão flutuante.
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -400));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Mercado'));
     await tester.pumpAndSettle();
     await tapText(tester, 'Anular');
