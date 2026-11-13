@@ -459,6 +459,65 @@ void main() {
     expect(data.settings['cloud.email'], 'eu@exemplo.ao');
   });
 
+  testWidgets('conta com confirmação por código e entrada num telemóvel novo', (tester) async {
+    cloud.confirmation = true;
+    await setUpUser(tester);
+    await tester.tap(find.byTooltip('Definições'));
+    await tester.pumpAndSettle();
+    await tapText(tester, 'Conta e sincronização');
+    await tester.enterText(find.byKey(const Key('cloud-email')), 'Eu@Exemplo.ao');
+    await tester.enterText(find.byKey(const Key('cloud-password')), 'Segura12345');
+    await tester.enterText(find.byKey(const Key('cloud-confirm')), 'Segura12345');
+    final submit = find.widgetWithText(FilledButton, 'Criar conta');
+    await tester.ensureVisible(submit);
+    await tester.tap(submit);
+    await tester.pumpAndSettle();
+
+    // Código errado, depois o certo.
+    expect(find.text('Código enviado por e-mail'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('email-code')), '000000');
+    await tester.tap(find.text('Confirmar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Código enviado por e-mail'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('email-code')), '123456');
+    await tester.tap(find.text('Confirmar'));
+    await tester.pumpAndSettle();
+
+    final code = tester.widget<SelectableText>(find.byKey(const Key('recovery-code'))).data!.replaceAll(' – ', '-');
+    await tester.enterText(find.byKey(const Key('recovery-check')), code.split('-').last);
+    await tapText(tester, 'Guardei o código');
+    final user = cloud.users['eu@exemplo.ao']!.$1;
+    expect(cloud.deviceRows[user], hasLength(1), reason: 'este telemóvel registado');
+    expect(find.textContaining('(este)'), findsOneWidget);
+
+    // "Telemóvel novo": apagar tudo e entrar com a mesma conta pede código.
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tapText(tester, 'Apagar tudo e repor');
+    await tester.tap(find.widgetWithText(FilledButton, 'Apagar tudo'));
+    await tester.pumpAndSettle();
+    await typePin(tester, '482917');
+    await typePin(tester, '482917');
+    await tapText(tester, 'Já tenho conta FINTRACK');
+    await tester.tap(find.text('Entrar').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('cloud-email')), 'eu@exemplo.ao');
+    await tester.enterText(find.byKey(const Key('cloud-password')), 'Segura12345');
+    final enter = find.widgetWithText(FilledButton, 'Entrar');
+    await tester.ensureVisible(enter);
+    await tester.tap(enter);
+    await tester.pumpAndSettle();
+    expect(find.text('Código enviado por e-mail'), findsOneWidget, reason: 'dispositivo novo');
+    await tester.enterText(find.byKey(const Key('email-code')), '654321');
+    await tester.tap(find.text('Confirmar'));
+    await tester.pumpAndSettle();
+
+    // Os dados voltaram e o perfil abre o Início.
+    expect(find.text('Olá, Eusébio'), findsOneWidget);
+    expect(data.stored, hasLength(1));
+    expect(cloud.deviceRows[user], hasLength(2));
+  });
+
   testWidgets('FINTRACK AI: Smart Entry prepara, o utilizador revê e grava', (tester) async {
     await setUpUser(tester);
     await tester.tap(find.text('IA'));

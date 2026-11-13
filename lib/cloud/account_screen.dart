@@ -57,29 +57,36 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     setState(() => _busy = true);
     final cloud = ref.read(cloudProvider.notifier);
     try {
-      String? code;
-      if (_create) {
-        code = await cloud.signUp(_email.text, _password.text);
-      } else {
+      CloudStep? step = _create
+          ? await cloud.signUp(_email.text, _password.text)
+          : await cloud.signIn(_email.text, _password.text);
+      while (step is NeedsEmailCode) {
+        if (!mounted) return;
+        final code = await _askEmailCode(step.email);
+        if (code == null) return;
         try {
-          code = await cloud.signIn(_email.text, _password.text);
+          step = await cloud.confirmEmailCode(code);
         } on NeedsRecoveryCode {
-          if (!mounted) return;
-          final rc = await _askRecoveryCode();
-          if (rc == null) return;
-          code = await cloud.signIn(_email.text, _password.text, recoveryCode: rc);
+          step = await _recover(cloud);
+        } on CloudException catch (e) {
+          if (mounted) setState(() => _error = e.message);
         }
       }
-      if (!mounted) return;
-      if (code != null) {
+      if (step == null) return;
+      final ready = step;
+      final recovery = ready is CloudReady ? ready.recoveryCode : null;
+      if (recovery != null && mounted) {
         await Navigator.of(context).push(MaterialPageRoute<void>(
-          builder: (_) => RecoveryCodeScreen(code: code!),
+          builder: (_) => RecoveryCodeScreen(code: recovery),
           fullscreenDialog: true,
         ));
       }
       await cloud.syncNow();
       _password.clear();
       _confirm.clear();
+    } on NeedsRecoveryCode {
+      await _recover(cloud);
+      await cloud.syncNow();
     } on CloudException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
@@ -87,6 +94,58 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Future<CloudStep?> _recover(CloudController cloud) async {
+    while (mounted) {
+      final rc = await _askRecoveryCode();
+      if (rc == null) return null;
+      try {
+        return await cloud.continueWithRecovery(rc);
+      } on CloudException catch (e) {
+        if (mounted) setState(() => _error = e.message);
+      }
+    }
+    return null;
+  }
+
+  Future<String?> _askEmailCode(String email) {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Código enviado por e-mail'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Enviámos um código de 6 dígitos para $email. Escreva-o aqui (válido 15 minutos).'),
+            const SizedBox(height: FtSpace.sm),
+            TextField(
+              key: const Key('email-code'),
+              controller: controller,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              maxLength: 6,
+              style: const TextStyle(fontSize: 24, letterSpacing: 6),
+              textAlign: TextAlign.center,
+            ),
+            TextButton(
+              onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                await ref.read(cloudProvider.notifier).resendCode();
+                messenger.showSnackBar(const SnackBar(content: Text('Código reenviado.')));
+              },
+              child: const Text('Reenviar código'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(controller.text), child: const Text('Confirmar')),
+        ],
+      ),
+    );
   }
 
   Future<String?> _askRecoveryCode() {
@@ -116,6 +175,22 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _renameDevice(String current) async {
+    final controller = TextEditingController(text: current);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Nome deste dispositivo'),
+        content: TextField(controller: controller, maxLength: 60, autofocus: true),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(controller.text), child: const Text('Guardar')),
+        ],
+      ),
+    );
+    if (name != null) await ref.read(cloudProvider.notifier).renameDevice(name);
   }
 
   Future<void> _deleteAccount(String email) async {
@@ -197,6 +272,33 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                       'e-mail e palavra-passe para trazer tudo.',
                       style: muted,
                     ),
+                    const Divider(height: FtSpace.xl),
+                    Text('Dispositivos com sessão', style: theme.textTheme.titleSmall),
+                    const SizedBox(height: FtSpace.xs),
+                    for (final d in cloud.devices)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(d.platform == 'ios' ? Icons.phone_iphone : Icons.phone_android),
+                        title: Text(d.id == cloud.deviceId ? '${d.name} (este)' : d.name),
+                        subtitle: Text('Último acesso: ${dayLabel(d.lastSeen.toLocal())}'),
+                        trailing: d.id == cloud.deviceId
+                            ? IconButton(
+                                tooltip: 'Mudar o nome',
+                                icon: const Icon(Icons.edit_outlined),
+                                onPressed: () => _renameDevice(d.name),
+                              )
+                            : null,
+                      ),
+                    if (cloud.devices.length > 1)
+                      TextButton.icon(
+                        icon: const Icon(Icons.logout),
+                        label: const Text('Terminar sessão nos outros dispositivos'),
+                        onPressed: () async {
+                          final messenger = ScaffoldMessenger.of(context);
+                          await ref.read(cloudProvider.notifier).signOutOtherDevices();
+                          messenger.showSnackBar(const SnackBar(content: Text('Sessões dos outros dispositivos terminadas.')));
+                        },
+                      ),
                     const Divider(height: FtSpace.xl),
                     OutlinedButton(
                       onPressed: () => ref.read(cloudProvider.notifier).signOut(),

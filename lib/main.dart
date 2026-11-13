@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'cloud/cloud_controller.dart';
 import 'design/tokens.dart';
 import 'home/home_screen.dart';
 import 'onboarding/onboarding_screen.dart';
@@ -45,6 +46,10 @@ class _FintrackAppState extends ConsumerState<FintrackApp>
     if (state == AppLifecycleState.resumed) {
       session.onForeground();
       setState(() => _obscured = false);
+      // Ao voltar ao app (e ainda desbloqueado): traz as alterações da nuvem.
+      if (ref.read(sessionProvider).status == SessionStatus.unlocked) {
+        ref.read(cloudProvider.notifier).syncIfStale();
+      }
     } else {
       if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
         session.onBackground();

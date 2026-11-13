@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:fintrack_core/fintrack_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../ai/ai_view.dart';
+import '../cloud/cloud_api.dart';
 import '../cloud/cloud_controller.dart';
 import '../design/backdrop.dart';
 import '../design/country_photos.dart';
@@ -39,15 +42,27 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _tab = 0;
 
+  Timer? _periodic;
+
   @override
   void initState() {
     super.initState();
-    // Depois de desbloquear: lê a sessão da nuvem e sincroniza.
+    // Depois de desbloquear: lê a sessão da nuvem e sincroniza; depois, a
+    // cada 10 minutos enquanto o app está aberto.
     Future.microtask(() async {
       final cloud = ref.read(cloudProvider.notifier);
       await cloud.load();
       if (mounted && ref.read(cloudProvider).signedIn) await cloud.syncNow();
     });
+    _periodic = Timer.periodic(const Duration(minutes: 10), (_) {
+      if (mounted) ref.read(cloudProvider.notifier).syncIfStale(const Duration(minutes: 9));
+    });
+  }
+
+  @override
+  void dispose() {
+    _periodic?.cancel();
+    super.dispose();
   }
   PlanSection _plan = PlanSection.commitments;
 
@@ -175,7 +190,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ],
         ),
-        body: finance.when(
+        body: Column(
+          children: [
+            if (ref.watch(cloudProvider.select((c) => c.newDevices)).isNotEmpty)
+              _NewDeviceBanner(devices: ref.watch(cloudProvider.select((c) => c.newDevices))),
+            Expanded(child: finance.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (_, __) => const Center(child: Text('Não foi possível ler os dados.')),
           data: (data) => switch (_tab) {
@@ -201,7 +220,59 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             3 => AiView(data: data, discreet: session.discreet),
             _ => _AccountsView(data: data, discreet: session.discreet),
           },
+        )),
+          ],
         ),
+      ),
+    );
+  }
+}
+
+/// Aviso de novo início de sessão noutro dispositivo.
+class _NewDeviceBanner extends ConsumerWidget {
+  const _NewDeviceBanner({required this.devices});
+
+  final List<RemoteDevice> devices;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final colors = theme.extension<FtColors>()!;
+    final names = devices.map((d) => d.name).join(', ');
+    return Container(
+      margin: const EdgeInsets.fromLTRB(FtSpace.lg, 0, FtSpace.lg, FtSpace.sm),
+      padding: const EdgeInsets.all(FtSpace.md),
+      decoration: BoxDecoration(
+        color: colors.alert.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(FtRadius.md),
+        border: Border.all(color: colors.alert.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Nova sessão na sua conta: $names', style: theme.textTheme.titleSmall),
+          const SizedBox(height: FtSpace.xs),
+          Text(
+            'Se não foi o senhor, termine as sessões dos outros dispositivos e mude a palavra-passe.',
+            style: theme.textTheme.bodySmall,
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () async {
+                  await ref.read(cloudProvider.notifier).signOutOtherDevices();
+                  ref.read(cloudProvider.notifier).acknowledgeNewDevices();
+                },
+                child: const Text('Não fui eu'),
+              ),
+              FilledButton.tonal(
+                onPressed: () => ref.read(cloudProvider.notifier).acknowledgeNewDevices(),
+                child: const Text('Fui eu'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

@@ -48,6 +48,22 @@ class RemoteRecord {
   final DateTime? updatedAt;
 }
 
+class RemoteDevice {
+  const RemoteDevice({
+    required this.id,
+    required this.name,
+    required this.platform,
+    required this.createdAt,
+    required this.lastSeen,
+  });
+
+  final String id;
+  final String name;
+  final String platform;
+  final DateTime createdAt;
+  final DateTime lastSeen;
+}
+
 class RemoteVault {
   const RemoteVault(this.passwordWrap, this.recoveryWrap);
   final String passwordWrap;
@@ -55,7 +71,27 @@ class RemoteVault {
 }
 
 abstract interface class CloudApi {
-  Future<CloudSession> signUp(String email, String password);
+  /// O servidor exige confirmar o e-mail (e código em dispositivos novos)?
+  Future<bool> emailConfirmationRequired();
+
+  /// Devolve `null` quando a conta fica à espera do código de confirmação.
+  Future<CloudSession?> signUp(String email, String password);
+
+  /// Confirma um código de 6 dígitos ([type]: 'signup' ou 'email').
+  Future<CloudSession> verifyCode(String email, String code, {required String type});
+
+  /// Envia por e-mail um código para entrar (dispositivo novo).
+  Future<void> sendLoginCode(String email);
+
+  /// Volta a enviar o código de confirmação da conta.
+  Future<void> resendSignupCode(String email);
+
+  /// Termina as sessões dos outros dispositivos.
+  Future<void> signOutOthers(CloudSession session);
+
+  Future<void> upsertDevice(CloudSession session, {required String id, required String name, required String platform});
+  Future<List<RemoteDevice>> devices(CloudSession session);
+  Future<void> deleteDevice(CloudSession session, String id);
   Future<CloudSession> signIn(String email, String password);
   Future<CloudSession> refresh(String refreshToken);
   Future<void> signOut(CloudSession session);
@@ -115,6 +151,8 @@ class HttpCloudApi implements CloudApi {
       'email_address_invalid' || 'validation_failed' => 'E-mail inválido.',
       'over_request_rate_limit' || 'over_email_send_rate_limit' => 'Demasiadas tentativas. Espere alguns minutos.',
       'refresh_token_not_found' || 'session_not_found' => 'A sessão terminou. Entre de novo.',
+      'otp_expired' => 'Código errado ou expirado. Peça um novo.',
+      'email_not_confirmed' => 'Falta confirmar o e-mail com o código enviado.',
       _ => msg.isNotEmpty ? 'Não foi possível concluir: $msg' : 'Não foi possível concluir (erro ${r.statusCode}).',
     };
     return CloudException(m, code: code);
@@ -137,12 +175,108 @@ class HttpCloudApi implements CloudApi {
     );
   }
 
+  bool? _confirmation;
+
   @override
-  Future<CloudSession> signUp(String email, String password) async => _session(await _send(() => _client.post(
-        _u('/auth/v1/signup'),
-        headers: _headers(),
-        body: jsonEncode({'email': email, 'password': password}),
-      )));
+  Future<bool> emailConfirmationRequired() async {
+    final cached = _confirmation;
+    if (cached != null) return cached;
+    final r = await _send(() => _client.get(_u('/auth/v1/settings'), headers: _headers()));
+    if (r.statusCode >= 400) return false;
+    final j = jsonDecode(r.body) as Map<String, Object?>;
+    return _confirmation = j['mailer_autoconfirm'] != true;
+  }
+
+  @override
+  Future<CloudSession?> signUp(String email, String password) async {
+    final r = await _send(() => _client.post(
+          _u('/auth/v1/signup'),
+          headers: _headers(),
+          body: jsonEncode({'email': email, 'password': password}),
+        ));
+    if (r.statusCode >= 400) throw _authError(r);
+    final j = jsonDecode(r.body) as Map<String, Object?>;
+    if (j['access_token'] == null) return null; // à espera do código
+    return _session(r);
+  }
+
+  @override
+  Future<CloudSession> verifyCode(String email, String code, {required String type}) async {
+    final r = await _send(() => _client.post(
+          _u('/auth/v1/verify'),
+          headers: _headers(),
+          body: jsonEncode({'type': type, 'email': email, 'token': code.trim()}),
+        ));
+    if (r.statusCode >= 400) {
+      final e = _authError(r);
+      if (e.code == 'otp_expired' || e.code == 'otp_disabled' || r.statusCode == 403) {
+        throw const CloudException('Código errado ou expirado. Peça um novo.', code: 'otp');
+      }
+      throw e;
+    }
+    return _session(r);
+  }
+
+  @override
+  Future<void> sendLoginCode(String email) async {
+    final r = await _send(() => _client.post(
+          _u('/auth/v1/otp'),
+          headers: _headers(),
+          body: jsonEncode({'email': email, 'create_user': false}),
+        ));
+    if (r.statusCode >= 400) throw _authError(r);
+  }
+
+  @override
+  Future<void> resendSignupCode(String email) async {
+    final r = await _send(() => _client.post(
+          _u('/auth/v1/resend'),
+          headers: _headers(),
+          body: jsonEncode({'type': 'signup', 'email': email}),
+        ));
+    if (r.statusCode >= 400) throw _authError(r);
+  }
+
+  @override
+  Future<void> signOutOthers(CloudSession session) async {
+    final r = await _send(() => _client.post(_u('/auth/v1/logout', {'scope': 'others'}), headers: _headers(session)));
+    if (r.statusCode >= 400) throw _authError(r);
+  }
+
+  @override
+  Future<void> upsertDevice(CloudSession session, {required String id, required String name, required String platform}) async {
+    final r = await _send(() => _client.post(
+          _u('/rest/v1/devices', {'on_conflict': 'user_id,id'}),
+          headers: {..._headers(session), 'Prefer': 'resolution=merge-duplicates,return=minimal'},
+          body: jsonEncode({'id': id, 'name': name, 'platform': platform}),
+        ));
+    _check(r);
+  }
+
+  @override
+  Future<List<RemoteDevice>> devices(CloudSession session) async {
+    final r = await _send(() => _client.get(
+          _u('/rest/v1/devices', {'select': 'id,name,platform,created_at,last_seen', 'order': 'last_seen.desc'}),
+          headers: _headers(session),
+        ));
+    _check(r);
+    return [
+      for (final row in jsonDecode(r.body) as List<Object?>)
+        RemoteDevice(
+          id: (row! as Map<String, Object?>)['id']! as String,
+          name: row['name']! as String,
+          platform: row['platform']! as String,
+          createdAt: DateTime.parse(row['created_at']! as String),
+          lastSeen: DateTime.parse(row['last_seen']! as String),
+        ),
+    ];
+  }
+
+  @override
+  Future<void> deleteDevice(CloudSession session, String id) async {
+    final r = await _send(() => _client.delete(_u('/rest/v1/devices', {'id': 'eq.$id'}), headers: _headers(session)));
+    _check(r);
+  }
 
   @override
   Future<CloudSession> signIn(String email, String password) async => _session(await _send(() => _client.post(
@@ -269,6 +403,56 @@ class MemoryCloudApi implements CloudApi {
   final Map<String, Map<String, RemoteRecord>> records = {};
   int _clock = 0;
   bool offline = false;
+  bool confirmation = false;
+  final Set<String> unconfirmed = {};
+  final Map<String, String> sentCodes = {};
+  final Map<String, Map<String, RemoteDevice>> deviceRows = {};
+  int signedOutOthers = 0;
+
+  @override
+  Future<bool> emailConfirmationRequired() async => confirmation;
+
+  @override
+  Future<CloudSession> verifyCode(String email, String code, {required String type}) async {
+    _net();
+    if (sentCodes[email] != code) throw const CloudException('Código errado ou expirado. Peça um novo.', code: 'otp');
+    sentCodes.remove(email);
+    unconfirmed.remove(email);
+    return _s(email);
+  }
+
+  @override
+  Future<void> sendLoginCode(String email) async {
+    _net();
+    if (!users.containsKey(email)) throw const CloudException('Conta desconhecida.', code: 'user_not_found');
+    sentCodes[email] = '654321';
+  }
+
+  @override
+  Future<void> resendSignupCode(String email) async => sentCodes[email] = '123456';
+
+  @override
+  Future<void> signOutOthers(CloudSession session) async => signedOutOthers++;
+
+  @override
+  Future<void> upsertDevice(CloudSession s, {required String id, required String name, required String platform}) async {
+    _net();
+    final mine = deviceRows.putIfAbsent(s.userId, () => {});
+    final now = DateTime.utc(2026).add(Duration(seconds: ++_clock));
+    mine[id] = RemoteDevice(
+      id: id,
+      name: name,
+      platform: platform,
+      createdAt: mine[id]?.createdAt ?? now,
+      lastSeen: now,
+    );
+  }
+
+  @override
+  Future<List<RemoteDevice>> devices(CloudSession s) async => [...?deviceRows[s.userId]?.values];
+
+  @override
+  Future<void> deleteDevice(CloudSession s, String id) async => deviceRows[s.userId]?.remove(id);
 
   CloudSession _s(String email) {
     final u = users[email]!;
@@ -280,10 +464,15 @@ class MemoryCloudApi implements CloudApi {
   }
 
   @override
-  Future<CloudSession> signUp(String email, String password) async {
+  Future<CloudSession?> signUp(String email, String password) async {
     _net();
     if (users.containsKey(email)) throw const CloudException('Já existe uma conta com este e-mail.', code: 'user_already_exists');
     users[email] = ('user-${users.length + 1}', password);
+    if (confirmation) {
+      unconfirmed.add(email);
+      sentCodes[email] = '123456';
+      return null;
+    }
     return _s(email);
   }
 
@@ -292,6 +481,9 @@ class MemoryCloudApi implements CloudApi {
     _net();
     final u = users[email];
     if (u == null || u.$2 != password) throw const CloudException('E-mail ou palavra-passe errados.', code: 'invalid_credentials');
+    if (unconfirmed.contains(email)) {
+      throw const CloudException('Falta confirmar o e-mail com o código enviado.', code: 'email_not_confirmed');
+    }
     return _s(email);
   }
 

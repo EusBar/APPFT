@@ -6,7 +6,7 @@ App de gestão e inteligência financeira pessoal (Android e iOS, Flutter), cons
 
 ## Estado
 
-**Fase 1 — Fundação** ✅ · **Fase 2 — Gestão financeira** ✅ · **Fase 3 — Motor financeiro** ✅ · **Fase 4 — Relatórios e importação** ✅ · **Fase 5 — Planeamento** ✅ · **Etapa 3 — Publicação, sem pagamentos** ✅ · **Etapa 4A — Nuvem** ✅ · **Etapa 5A — FINTRACK AI local (v0.12.0)**
+**Fase 1 — Fundação** ✅ · **Fase 2 — Gestão financeira** ✅ · **Fase 3 — Motor financeiro** ✅ · **Fase 4 — Relatórios e importação** ✅ · **Fase 5 — Planeamento** ✅ · **Etapa 3 — Publicação, sem pagamentos** ✅ · **Etapa 4 — Nuvem** ✅ · **Etapa 5A — FINTRACK AI local** ✅ (v0.13.0)
 
 - `packages/fintrack_core`: núcleo em Dart puro, sem UI
   - `Money` (inteiros na unidade mínima), `Currency` (AOA, USD, EUR, BRL, GBP, ZAR)
@@ -49,7 +49,9 @@ App de gestão e inteligência financeira pessoal (Android e iOS, Flutter), cons
 - Sem os segredos `FINTRACK_KEYSTORE_*` no GitHub, o APK é assinado com uma chave de teste diferente em cada compilação (para atualizar é preciso desinstalar).
 - Os ficheiros exportados (PDF/CSV) não são cifrados.
 
-**A seguir (etapa 5B):** Copilot com o Claude através de um gateway (Edge Function), com consentimento e validador de números. **Depois (4B):** e-mail de envio próprio (SMTP) com confirmação e código em telemóvel novo, lista de dispositivos, sincronização em segundo plano. Os passos pagos da publicação ficam para o fim.
+**Etapa 4B:** confirmação da conta e código de 6 dígitos em dispositivos novos (ativos assim que houver SMTP próprio), lista de dispositivos com aviso de nova sessão e terminar sessões remotas, sincronização ao voltar ao app e a cada 10 minutos. Sem sincronização em segundo plano: a base só abre com PIN/biometria.
+
+**A seguir (etapa 5B):** Copilot com o Claude através de um gateway (Edge Function), com consentimento e validador de números.
 
 ## Créditos
 
