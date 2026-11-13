@@ -10,10 +10,24 @@ import 'insights.dart';
 /// Resposta a uma pergunta: um texto curto e, opcionalmente, linhas de
 /// detalhe. Todos os valores vêm do livro-razão.
 class AskAnswer {
-  const AskAnswer(this.text, {this.lines = const [], this.understood = true});
+  const AskAnswer(
+    this.text, {
+    this.lines = const [],
+    this.understood = true,
+    this.headline,
+    this.headlineLabel,
+    this.bars = const [],
+  });
 
   final String text;
   final List<String> lines;
+
+  /// Valor principal da resposta, para mostrar em destaque.
+  final Money? headline;
+  final String? headlineLabel;
+
+  /// Repartição (ex.: por categoria), para barras proporcionais.
+  final List<(String label, Money value)> bars;
 
   /// `false` quando a pergunta não foi percebida (mostra exemplos).
   final bool understood;
@@ -180,14 +194,20 @@ class AskEngine {
     if (total.isZero) {
       return AskAnswer('Não há ${kind == MovementKind.expense ? 'saídas' : 'entradas'}$where registadas ${p.label}.');
     }
-    final lines = <String>[];
+    final bars = <(String, Money)>[];
     if (cat == null) {
       final list = TrendsEngine.byCategory(ledger, currency, from: p.from, to: p.to, kind: kind);
       for (final (id, v) in list.take(5)) {
-        lines.add('${_name(id)}: ${_fmt(v)}');
+        bars.add((_name(id), v));
       }
     }
-    return AskAnswer('$verb ${_fmt(total)}$where ${p.label}.', lines: lines);
+    return AskAnswer(
+      '$verb ${_fmt(total)}$where ${p.label}.',
+      lines: [for (final (l, v) in bars) '$l: ${_fmt(v)}'],
+      headline: total,
+      headlineLabel: '${kind == MovementKind.expense ? 'Saídas' : 'Entradas'}$where ${p.label}',
+      bars: bars,
+    );
   }
 
   AskAnswer _top(AskPeriod p) {
@@ -199,6 +219,9 @@ class AskEngine {
     return AskAnswer(
       '${p.label[0].toUpperCase()}${p.label.substring(1)}, gasta mais em ${_name(id)}: ${_fmt(top)} ($share% das saídas).',
       lines: [for (final (cid, v) in list.take(5)) '${_name(cid)}: ${_fmt(v)}'],
+      headline: top,
+      headlineLabel: '${_name(id)} · $share% das saídas',
+      bars: [for (final (cid, v) in list.take(5)) (_name(cid), v)],
     );
   }
 
@@ -228,6 +251,9 @@ class AskEngine {
     return AskAnswer(
       'Até dia ${t.day}, gastou ${_fmt(now)}: $how no mesmo período do mês passado (${_fmt(before)}).',
       lines: lines,
+      headline: now,
+      headlineLabel: change == 0 ? 'Igual ao mês passado' : change > 0 ? '+$change% face ao mês passado' : '$change% face ao mês passado',
+      bars: [('Este mês', now), ('Mês passado', before)],
     );
   }
 
@@ -242,6 +268,8 @@ class AskEngine {
       lines: [
         if (committed != null && !committed.isZero) 'Já reservado para compromissos: ${_fmt(committed)}',
       ],
+      headline: av,
+      headlineLabel: 'Disponível para gastar',
     );
   }
 
@@ -254,7 +282,16 @@ class AskEngine {
     final totals = ledger.balances();
     if (totals.isEmpty) return const AskAnswer('Ainda não tem contas.');
     final text = totals.values.map(_fmt).join(' · ');
-    return AskAnswer('Saldo total: $text.', lines: lines);
+    return AskAnswer(
+      'Saldo total: $text.',
+      lines: lines,
+      headline: totals[currency],
+      headlineLabel: 'Saldo total',
+      bars: [
+        for (final a in ledger.accounts.values)
+          if (!a.archived && a.currency == currency && ledger.balanceOf(a.id).minor > 0) (a.name, ledger.balanceOf(a.id)),
+      ],
+    );
   }
 
   AskAnswer _commitments() {

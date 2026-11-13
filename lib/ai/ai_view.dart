@@ -10,7 +10,7 @@ import '../finance/finance_data.dart';
 import '../finance/movement_form_screen.dart';
 import '../finance/movement_tile.dart';
 import '../security/session.dart';
-import 'ask_card.dart';
+import 'ai_widgets.dart';
 
 /// Separador FINTRACK AI. Nesta versão tudo corre no telemóvel, sem
 /// Internet: Smart Entry por texto ou SMS colado e o AI Guard.
@@ -86,75 +86,118 @@ class _AiViewState extends ConsumerState<AiView> {
     final theme = Theme.of(context);
     final colors = theme.extension<FtColors>()!;
     final muted = theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
-    final alerts = AiGuard.scan(widget.data.ledger, today: DateTime.now(), dismissed: _dismissed);
-    final currency = ref.watch(sessionProvider.select((s) => s.profile?.mainCurrency)) ?? Currency.aoa;
+    final data = widget.data;
+    final today = DateTime.now();
+    final session = ref.watch(sessionProvider);
+    final currency = session.profile?.mainCurrency ?? Currency.aoa;
+    final alerts = AiGuard.scan(data.ledger, today: today, dismissed: _dismissed);
+    final insights = TrendsEngine.insights(
+      data.ledger,
+      currency,
+      today: today,
+      categoryName: (id) => data.category(id)?.name ?? 'Outros',
+    );
+    final pulse = FinancialPulse.compute(
+      data.ledger,
+      currency,
+      today: today,
+      availableMinor: data.ledger.available(today: today, horizon: session.horizon)[currency]?.minor ?? 0,
+      budgetPercents: [
+        for (final b in data.budgets) BudgetEngine.status(data.ledger, b, month: today, today: today).percent,
+      ],
+    );
+
+    Widget section(String title, IconData icon, {String? trailing}) => Padding(
+          padding: const EdgeInsets.only(top: FtSpace.xl, bottom: FtSpace.sm),
+          child: Row(children: [
+            Icon(icon, size: 18, color: colors.aiAccent),
+            const SizedBox(width: FtSpace.sm),
+            Text(title.toUpperCase(), style: muted?.copyWith(letterSpacing: 1.4, fontWeight: FontWeight.w700)),
+            const Spacer(),
+            if (trailing != null) Text(trailing, style: muted),
+          ]),
+        );
 
     return ListView(
       key: const Key('ai-list'),
       padding: const EdgeInsets.fromLTRB(FtSpace.lg, FtSpace.sm, FtSpace.lg, 96),
       children: [
-        Row(
-          children: [
-            Icon(Icons.auto_awesome, size: 18, color: colors.aiAccent),
-            const SizedBox(width: FtSpace.sm),
-            Expanded(
-              child: Text(
-                'Tudo corre no seu telemóvel, sem Internet · nada é gravado sem a sua confirmação',
-                style: muted?.copyWith(color: colors.aiAccent),
-              ),
-            ),
-          ],
+        Reveal(
+          child: PulseHero(pulse: pulse, headline: insights.isEmpty ? null : insights.first, discreet: widget.discreet),
         ),
-        const SizedBox(height: FtSpace.md),
-        AskCard(data: widget.data, currency: currency, discreet: widget.discreet),
         const SizedBox(height: FtSpace.lg),
-        _Card(
-          accent: colors.aiAccent,
-          children: [
-            Text('Smart Entry', style: theme.textTheme.titleMedium),
-            const SizedBox(height: FtSpace.xs),
-            Text('Escreva como diria, ou cole o SMS do banco.', style: muted),
-            const SizedBox(height: FtSpace.sm),
-            TextField(
-              key: const Key('smart-entry'),
-              controller: _text,
-              minLines: 2,
-              maxLines: 5,
-              maxLength: 400,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                hintText: 'Ex.: Gastei 12 500 Kz no Kero hoje',
-                border: OutlineInputBorder(),
-              ),
-              onSubmitted: (_) => _prepare(),
+        Reveal(
+          delay: 90,
+          child: AskPanel(
+            discreet: widget.discreet,
+            engine: () => AskEngine(
+              ledger: widget.data.ledger,
+              categories: widget.data.categories,
+              currency: currency,
+              today: DateTime.now(),
+              budgets: widget.data.budgets,
+              goals: widget.data.goals,
+              contributions: widget.data.contributions,
+              horizon: ref.read(sessionProvider).horizon,
             ),
-            FilledButton.tonalIcon(
-              icon: const Icon(Icons.auto_awesome),
-              label: const Text('Preparar movimento'),
-              onPressed: _prepare,
-            ),
-            if (_draft != null) ...[
-              const SizedBox(height: FtSpace.md),
-              _DraftPreview(draft: _draft!, data: widget.data),
+          ),
+        ),
+        if (insights.isNotEmpty) ...[
+          section('Para si', Icons.auto_awesome, trailing: '${insights.length} ${insights.length == 1 ? 'observação' : 'observações'}'),
+          Reveal(delay: 180, child: InsightCarousel(insights: insights, discreet: widget.discreet)),
+        ],
+        section('Evolução', Icons.show_chart_rounded),
+        Reveal(delay: 240, child: TrendChart(data: data, currency: currency, discreet: widget.discreet)),
+        section('Registo rápido', Icons.bolt_rounded),
+        GlowPanel(
+          glow: colors.aiAccent,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Smart Entry', style: theme.textTheme.titleMedium),
+              const SizedBox(height: FtSpace.xs),
+              Text('Escreva como diria, ou cole o SMS do banco.', style: muted),
               const SizedBox(height: FtSpace.sm),
-              FilledButton(
-                onPressed: _draft!.kind == MovementKind.transfer ? null : _review,
-                child: Text(_draft!.complete ? 'Rever e gravar' : 'Completar e gravar'),
+              TextField(
+                key: const Key('smart-entry'),
+                controller: _text,
+                minLines: 2,
+                maxLines: 5,
+                maxLength: 400,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  hintText: 'Ex.: Gastei 12 500 Kz no Kero hoje',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(18))),
+                ),
+                onSubmitted: (_) => _prepare(),
+              ),
+              FilledButton.tonalIcon(
+                icon: const Icon(Icons.auto_awesome),
+                label: const Text('Preparar movimento'),
+                onPressed: _prepare,
+              ),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOutCubic,
+                child: _draft == null
+                    ? const SizedBox(width: double.infinity)
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const SizedBox(height: FtSpace.md),
+                          _DraftPreview(draft: _draft!, data: data),
+                          const SizedBox(height: FtSpace.sm),
+                          FilledButton(
+                            onPressed: _draft!.kind == MovementKind.transfer ? null : _review,
+                            child: Text(_draft!.complete ? 'Rever e gravar' : 'Completar e gravar'),
+                          ),
+                        ],
+                      ),
               ),
             ],
-          ],
+          ),
         ),
-        const SizedBox(height: FtSpace.lg),
-        TrendsCard(data: widget.data, currency: currency, discreet: widget.discreet),
-        const SizedBox(height: FtSpace.lg),
-        Row(
-          children: [
-            Icon(Icons.shield_outlined, size: 20, color: theme.colorScheme.onSurfaceVariant),
-            const SizedBox(width: FtSpace.sm),
-            Text('AI Guard', style: theme.textTheme.titleMedium),
-          ],
-        ),
-        const SizedBox(height: FtSpace.xs),
+        section('AI Guard', Icons.shield_outlined),
         Text(
           'Sinais para verificar nos últimos 45 dias. Um alerta não é uma acusação: '
           'confirme, corrija ou marque como legítimo.',
@@ -175,37 +218,25 @@ class _AiViewState extends ConsumerState<AiView> {
         for (final a in alerts)
           _AlertTile(
             alert: a,
-            data: widget.data,
+            data: data,
             discreet: widget.discreet,
             onDismiss: () => _dismiss(a.id),
           ),
         const SizedBox(height: FtSpace.xl),
-        Text(
-          'O FINTRACK AI é apoio à decisão, não aconselhamento financeiro profissional.',
-          style: muted,
+        Row(
+          children: [
+            Icon(Icons.lock_outline, size: 14, color: theme.colorScheme.onSurfaceVariant),
+            const SizedBox(width: FtSpace.xs),
+            Expanded(
+              child: Text(
+                'Tudo é calculado no seu telemóvel, sem Internet. O FINTRACK AI é apoio à decisão, '
+                'não aconselhamento financeiro profissional.',
+                style: muted,
+              ),
+            ),
+          ],
         ),
       ],
-    );
-  }
-}
-
-class _Card extends StatelessWidget {
-  const _Card({required this.children, required this.accent});
-
-  final List<Widget> children;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(FtSpace.md),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHigh.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(FtRadius.lg),
-        border: Border.all(color: accent.withValues(alpha: 0.35)),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
     );
   }
 }

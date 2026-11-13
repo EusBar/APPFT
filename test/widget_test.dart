@@ -637,7 +637,7 @@ void main() {
     await setUpUser(tester);
     await tester.tap(find.text('IA'));
     await tester.pumpAndSettle();
-    expect(find.text('Pergunte ao FINTRACK'), findsOneWidget);
+    expect(find.text('PULSO FINANCEIRO'), findsOneWidget);
     await tester.dragUntilVisible(find.text('Nada a assinalar.'), find.byKey(const Key('ai-list')), const Offset(0, -250));
     expect(find.text('Nada a assinalar.'), findsOneWidget);
     await tester.dragUntilVisible(find.byKey(const Key('smart-entry')), find.byKey(const Key('ai-list')), const Offset(0, 250));

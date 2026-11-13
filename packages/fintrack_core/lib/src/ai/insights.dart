@@ -202,3 +202,103 @@ class TrendsEngine {
     return out;
   }
 }
+
+/// Um fator do pulso financeiro.
+class PulseFactor {
+  const PulseFactor(this.label, {required this.ok});
+  final String label;
+  final bool ok;
+}
+
+/// Pulso financeiro: uma nota de 0 a 100, calculada no telemóvel a partir de
+/// regras simples e explicáveis (cada fator aparece ao utilizador).
+class FinancialPulse {
+  const FinancialPulse({required this.score, required this.label, required this.factors});
+
+  final int score;
+  final String label;
+  final List<PulseFactor> factors;
+
+  /// `null` quando ainda não há movimentos para avaliar.
+  static FinancialPulse? compute(
+    Ledger ledger,
+    Currency currency, {
+    required DateTime today,
+    required int availableMinor,
+    List<int> budgetPercents = const [],
+  }) {
+    final t = DateTime(today.year, today.month, today.day);
+    if (!ledger.active().any((m) => m.kind != MovementKind.transfer && m.amount.currency == currency)) return null;
+    var score = 0;
+    final factors = <PulseFactor>[];
+
+    // 1. Poupança (35): último mês completo com entradas, senão o atual.
+    var start = DateTime(t.year, t.month - 1, 1);
+    var end = DateTime(t.year, t.month, 0);
+    var income = TrendsEngine._sum(ledger, MovementKind.income, currency, start, end);
+    if (income == 0) {
+      start = DateTime(t.year, t.month, 1);
+      end = t;
+      income = TrendsEngine._sum(ledger, MovementKind.income, currency, start, end);
+    }
+    final expense = TrendsEngine._sum(ledger, MovementKind.expense, currency, start, end);
+    if (income > 0) {
+      final rate = (income - expense) * 100 ~/ income;
+      score += rate >= 20 ? 35 : rate <= 0 ? 0 : rate * 35 ~/ 20;
+      factors.add(PulseFactor(rate >= 0 ? 'Poupa $rate% do que recebe' : 'Gasta mais do que recebe', ok: rate >= 10));
+    } else {
+      factors.add(const PulseFactor('Sem entradas registadas', ok: false));
+    }
+
+    // 2. Disponível depois dos compromissos (20).
+    if (availableMinor >= 0) {
+      score += 20;
+      factors.add(const PulseFactor('Compromissos cobertos', ok: true));
+    } else {
+      factors.add(const PulseFactor('Faltam fundos para os compromissos', ok: false));
+    }
+
+    // 3. Ritmo face ao mês passado (15).
+    final prevStart = DateTime(t.year, t.month - 1, 1);
+    final prevEnd = DateTime(t.year, t.month, 0);
+    final same = DateTime(prevStart.year, prevStart.month, t.day > prevEnd.day ? prevEnd.day : t.day);
+    final now = TrendsEngine._sum(ledger, MovementKind.expense, currency, DateTime(t.year, t.month, 1), t);
+    final before = TrendsEngine._sum(ledger, MovementKind.expense, currency, prevStart, same);
+    if (before == 0 || now <= before) {
+      score += 15;
+      factors.add(const PulseFactor('Gastos controlados', ok: true));
+    } else {
+      final over = (now - before) * 100 ~/ before;
+      score += over >= 50 ? 0 : 15 - over * 15 ~/ 50;
+      factors.add(PulseFactor('Gastos $over% acima do mês passado', ok: over < 10));
+    }
+
+    // 4. Orçamentos (20): sem orçamentos conta metade.
+    if (budgetPercents.isEmpty) {
+      score += 10;
+      factors.add(const PulseFactor('Sem orçamentos definidos', ok: false));
+    } else {
+      final within = budgetPercents.where((p) => p < 100).length;
+      score += within * 20 ~/ budgetPercents.length;
+      factors.add(PulseFactor('$within de ${budgetPercents.length} orçamentos no limite', ok: within == budgetPercents.length));
+    }
+
+    // 5. Compromissos em atraso (10).
+    final late = ledger.pending().where((c) => c.dueDate.isBefore(t)).length;
+    if (late == 0) {
+      score += 10;
+    } else {
+      factors.add(PulseFactor('$late ${late == 1 ? 'compromisso' : 'compromissos'} em atraso', ok: false));
+    }
+
+    final s = score.clamp(0, 100);
+    final label = s >= 80
+        ? 'Excelente'
+        : s >= 60
+            ? 'Saudável'
+            : s >= 40
+                ? 'Atenção'
+                : 'Em risco';
+    return FinancialPulse(score: s, label: label, factors: factors);
+  }
+}

@@ -107,4 +107,18 @@ void main() {
     expect(months, hasLength(6));
     expect(months.last.expense, const Money(5000000, aoa));
   });
+
+  test('respostas trazem valor em destaque e repartição', () {
+    final a = engine().ask('Quanto gastei este mês?');
+    expect(a.headline, const Money(5000000, aoa));
+    expect(a.bars.first.$1, 'Transporte');
+  });
+
+  test('pulso financeiro explicável', () {
+    final p = FinancialPulse.compute(ledger, aoa, today: today, availableMinor: 1)!;
+    expect(p.score, inInclusiveRange(0, 100));
+    expect(p.factors.any((f) => f.label.contains('Poupa 75%')), isTrue);
+    final empty = FinancialPulse.compute(Ledger([bai], const []), aoa, today: today, availableMinor: 0);
+    expect(empty, isNull);
+  });
 }
