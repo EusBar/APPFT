@@ -4,12 +4,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../design/labels.dart';
 import '../design/tokens.dart';
+import '../security/session.dart';
 import 'cloud_api.dart';
 import 'cloud_controller.dart';
 
 /// Conta FINTRACK: criar, entrar, sincronizar, terminar sessão, eliminar.
 class AccountScreen extends ConsumerStatefulWidget {
-  const AccountScreen({super.key});
+  const AccountScreen({super.key, this.entry = false});
+
+  /// Ecrã de entrada depois de terminar a sessão: começa em "Entrar" e
+  /// oferece começar sem conta.
+  final bool entry;
 
   @override
   ConsumerState<AccountScreen> createState() => _AccountScreenState();
@@ -27,6 +32,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
   @override
   void initState() {
     super.initState();
+    _create = !widget.entry;
     ref.read(cloudProvider.notifier).load();
   }
 
@@ -86,6 +92,10 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
       await cloud.syncNow();
       _password.clear();
       _confirm.clear();
+      // Conta sem dados na nuvem (nova): segue para criar o perfil.
+      if (widget.entry && ref.read(sessionProvider).status != SessionStatus.unlocked) {
+        await ref.read(sessionProvider.notifier).startWithoutAccount();
+      }
     } on NeedsRecoveryCode {
       await _recover(cloud);
       await cloud.syncNow();
@@ -247,9 +257,32 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
       ),
     );
     if (ok != true || !mounted) return;
+    final cloud = ref.read(cloudProvider.notifier);
+    setState(() => _busy = true);
+    final saved = await cloud.flushBeforeSignOut();
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (!saved) {
+      final force = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Sem ligação à nuvem'),
+          content: const Text('Não foi possível guardar as últimas alterações. Se terminar agora, '
+              'o que mudou desde a última sincronização perde-se.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Terminar mesmo assim')),
+          ],
+        ),
+      );
+      if (force != true || !mounted) return;
+    }
+    final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
-    await ref.read(cloudProvider.notifier).signOut();
-    messenger.showSnackBar(const SnackBar(content: Text('Sessão terminada neste telemóvel.')));
+    await cloud.signOut();
+    // Volta à raiz: o ecrã de entrada substitui o início.
+    navigator.popUntil((r) => r.isFirst);
+    messenger.showSnackBar(const SnackBar(content: Text('Sessão terminada. Os dados da conta saíram deste telemóvel.')));
   }
 
   @override
@@ -259,7 +292,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     final muted = theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Conta e sincronização')),
+      appBar: AppBar(title: Text(widget.entry ? 'Entrar no FINTRACK' : 'Conta e sincronização')),
       body: !cloud.loaded
           ? const Center(child: CircularProgressIndicator())
           : cloud.signedIn
@@ -325,7 +358,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                     const Divider(height: FtSpace.xl),
                     OutlinedButton(
                       key: const Key('cloud-signout'),
-                      onPressed: _signOut,
+                      onPressed: _busy ? null : _signOut,
                       child: const Text('Terminar sessão neste telemóvel'),
                     ),
                     const SizedBox(height: FtSpace.sm),
@@ -417,6 +450,14 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                       child: Text(_create ? 'Criar conta' : 'Entrar'),
                     ),
                     if (_busy) const Padding(padding: EdgeInsets.only(top: FtSpace.sm), child: LinearProgressIndicator()),
+                    if (widget.entry) ...[
+                      const SizedBox(height: FtSpace.lg),
+                      TextButton(
+                        key: const Key('start-without-account'),
+                        onPressed: _busy ? null : () => ref.read(sessionProvider.notifier).startWithoutAccount(),
+                        child: const Text('Começar sem conta, só neste telemóvel'),
+                      ),
+                    ],
                   ],
                 ),
     );

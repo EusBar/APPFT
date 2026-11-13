@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/local_store.dart';
 import '../finance/finance_data.dart';
+import '../notifications/reminders.dart';
 import '../security/pin_vault.dart';
 import '../security/session.dart';
 import 'cloud_api.dart';
@@ -407,14 +408,38 @@ class CloudController extends Notifier<CloudState> {
   }
 
   /// Termina a sessão neste telemóvel. Os dados locais ficam.
+  /// Última sincronização antes de sair. `false` se não foi possível (sem
+  /// rede): alterações recentes ainda não estão na nuvem.
+  Future<bool> flushBeforeSignOut() async {
+    while (state.syncing) {
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    }
+    return await syncNow() != null;
+  }
+
+  /// Termina a sessão: os dados da conta saem deste telemóvel e o app volta
+  /// ao ecrã de entrada. O aviso ao servidor segue em fundo.
   Future<void> signOut() async {
     final store = _store;
     if (store == null) return;
-    // Termina já neste telemóvel; o aviso ao servidor segue em fundo.
     final refresh = await store.getSetting(_kRefresh);
     final id = state.deviceId;
+    // Identidade do aparelho: continua a ser o mesmo telemóvel.
+    final keep = {
+      for (final k in [_kDeviceId, _kDeviceName, _kVerified]) k: await store.getSetting(k),
+    };
     await _forget(store);
     if (refresh != null) unawaited(_remoteSignOut(refresh, id));
+    try {
+      await ref.read(remindersProvider).cancelAll();
+    } catch (_) {
+      // Sem permissão de notificações: nada agendado.
+    }
+    await ref.read(sessionProvider.notifier).clearAfterSignOut();
+    for (final e in keep.entries) {
+      if (e.value != null) await store.setSetting(e.key, e.value);
+    }
+    ref.invalidate(financeProvider);
   }
 
   Future<void> _remoteSignOut(String refresh, String? deviceId) async {

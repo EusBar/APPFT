@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'cloud/account_screen.dart';
 import 'cloud/cloud_controller.dart';
 import 'design/tokens.dart';
 import 'home/home_screen.dart';
@@ -61,6 +62,7 @@ class _FintrackAppState extends ConsumerState<FintrackApp>
   @override
   Widget build(BuildContext context) {
     final status = ref.watch(sessionProvider.select((s) => s.status));
+    final signedOut = ref.watch(sessionProvider.select((s) => s.signedOut));
 
     // Ao bloquear, fecha os ecrãs abertos por cima do inicial (definições,
     // nova conta), para que nada fique visível sobre o ecrã de bloqueio.
@@ -87,6 +89,7 @@ class _FintrackAppState extends ConsumerState<FintrackApp>
         SessionStatus.loading => const _LoadingScreen(),
         SessionStatus.needsPin => const CreatePinScreen(),
         SessionStatus.locked => const LockScreen(),
+        SessionStatus.onboarding when signedOut => const AccountScreen(key: ValueKey('entry'), entry: true),
         SessionStatus.onboarding => const OnboardingScreen(),
         SessionStatus.unlocked => const HomeScreen(),
       },

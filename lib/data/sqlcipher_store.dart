@@ -792,6 +792,35 @@ class _SqlCipherStore implements LocalStore {
   }
 
   @override
+  Future<void> clearAll() {
+    return _db.transaction((txn) async {
+      await txn.execute('DROP TRIGGER IF EXISTS movements_immutable_update');
+      await txn.execute('DROP TRIGGER IF EXISTS movements_immutable_delete');
+      for (final table in [
+        'kixikila_records',
+        'kixikila_groups',
+        'goal_contributions',
+        'goals',
+        'budgets',
+        'commitments',
+        'movements',
+        'categories',
+        'accounts',
+        'profile',
+        'settings',
+        'sync_state',
+      ]) {
+        await txn.delete(table);
+      }
+      final batch = txn.batch();
+      SqlCipherStoreFactory._seedCategories(batch);
+      await batch.commit(noResult: true);
+      await txn.execute(SqlCipherStoreFactory._immutableUpdate);
+      await txn.execute(SqlCipherStoreFactory._immutableDelete);
+    });
+  }
+
+  @override
   Future<void> close() => _db.close();
 
   static Map<String, Object?> _movementRow(Movement m) => {

@@ -39,7 +39,11 @@ class SessionState {
     this.profile,
     this.biometricEnabled = false,
     this.horizon = AvailableHorizon.endOfMonth,
+    this.signedOut = false,
   });
+
+  /// Acabou de terminar a sessão da conta: mostra-se o ecrã de entrada.
+  final bool signedOut;
 
   final SessionStatus status;
 
@@ -66,6 +70,7 @@ class SessionState {
     bool clearProfile = false,
     bool? biometricEnabled,
     AvailableHorizon? horizon,
+    bool? signedOut,
   }) =>
       SessionState(
         status: status ?? this.status,
@@ -74,6 +79,7 @@ class SessionState {
         profile: clearProfile ? null : profile ?? this.profile,
         biometricEnabled: biometricEnabled ?? this.biometricEnabled,
         horizon: horizon ?? this.horizon,
+        signedOut: signedOut ?? this.signedOut,
       );
 }
 
@@ -85,6 +91,7 @@ class SessionController extends Notifier<SessionState> {
   static const _kAutoLock = 'ft.settings.autoLock';
   static const _kBiometric = 'ft.settings.biometric';
   static const _kHorizon = 'ft.settings.horizon';
+  static const _kSignedOut = 'ft.signedOut';
 
   LocalStore? _store;
   DateTime? _backgroundedAt;
@@ -191,6 +198,7 @@ class SessionController extends Notifier<SessionState> {
       state = state.copyWith(
         status: profile == null ? SessionStatus.onboarding : SessionStatus.unlocked,
         profile: profile,
+        signedOut: profile == null && await store.getSetting(_kSignedOut) == '1',
       );
     } finally {
       // A chave só serve para abrir a base; não fica em memória.
@@ -202,7 +210,7 @@ class SessionController extends Notifier<SessionState> {
     final store = _store;
     if (store == null) throw StateError('App bloqueado');
     await store.completeOnboarding(profile, firstAccount);
-    state = state.copyWith(status: SessionStatus.unlocked, profile: profile);
+    state = state.copyWith(status: SessionStatus.unlocked, profile: profile, signedOut: false);
   }
 
   Future<void> updateProfile(Profile profile) async {
@@ -218,8 +226,25 @@ class SessionController extends Notifier<SessionState> {
     if (store == null) return;
     final profile = await store.loadProfile();
     if (profile != null) {
-      state = state.copyWith(status: SessionStatus.unlocked, profile: profile);
+      if (state.signedOut) await store.setSetting(_kSignedOut, null);
+      state = state.copyWith(status: SessionStatus.unlocked, profile: profile, signedOut: false);
     }
+  }
+
+  /// Fim de sessão da conta: os dados dela saem deste telemóvel (estão na
+  /// nuvem) e o app volta ao ecrã de entrada. O PIN fica.
+  Future<void> clearAfterSignOut() async {
+    final store = _store;
+    if (store == null) return;
+    await store.clearAll();
+    await store.setSetting(_kSignedOut, '1');
+    state = state.copyWith(status: SessionStatus.onboarding, clearProfile: true, signedOut: true);
+  }
+
+  /// No ecrã de entrada, escolheu começar sem conta.
+  Future<void> startWithoutAccount() async {
+    await _store?.setSetting(_kSignedOut, null);
+    state = state.copyWith(signedOut: false);
   }
 
   /// Substitui todos os dados pelos de uma cópia (já decifrada e validada).
@@ -227,7 +252,7 @@ class SessionController extends Notifier<SessionState> {
     final store = _store;
     if (store == null) throw StateError('App bloqueado');
     await store.replaceAll(snapshot);
-    state = state.copyWith(status: SessionStatus.unlocked, profile: snapshot.profile);
+    state = state.copyWith(status: SessionStatus.unlocked, profile: snapshot.profile, signedOut: false);
   }
 
   void lock() {

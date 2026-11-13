@@ -458,7 +458,8 @@ void main() {
     expect(records.values.any((r) => r.payload.contains('Eusébio')), isFalse, reason: 'tudo cifrado');
     expect(data.settings['cloud.email'], 'eu@exemplo.ao');
 
-    // Terminar sessão: pede confirmação e sai logo, mesmo com a rede lenta.
+    // Terminar sessão: os dados saem do telemóvel e abre o ecrã de entrada.
+    final deviceId = data.settings['cloud.deviceId'];
     final signOut = find.byKey(const Key('cloud-signout'));
     await tester.ensureVisible(signOut);
     await tester.pumpAndSettle();
@@ -466,10 +467,56 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Terminar sessão'));
     await tester.pumpAndSettle();
-    expect(find.text('Sessão terminada neste telemóvel.'), findsOneWidget);
-    expect(find.byKey(const Key('cloud-email')), findsOneWidget);
+    expect(find.text('Entrar no FINTRACK'), findsOneWidget);
+    expect(find.text('Olá, Eusébio'), findsNothing);
+    expect(find.byTooltip('Definições'), findsNothing, reason: 'sem caminho de volta aos dados');
+    expect(data.profile, isNull);
+    expect(data.stored, isEmpty);
     expect(data.settings['cloud.email'], isNull);
     expect(data.settings['cloud.refresh'], isNull);
+    expect(data.settings['cloud.deviceId'], deviceId, reason: 'continua o mesmo aparelho');
+
+    // Entrar de novo traz os dados de volta.
+    await tester.enterText(find.byKey(const Key('cloud-email')), 'eu@exemplo.ao');
+    await tester.enterText(find.byKey(const Key('cloud-password')), 'Segura12345');
+    final enter = find.widgetWithText(FilledButton, 'Entrar');
+    await tester.ensureVisible(enter);
+    await tester.pumpAndSettle();
+    await tester.tap(enter);
+    await tester.pumpAndSettle();
+    expect(find.text('Olá, Eusébio'), findsOneWidget);
+    expect(data.stored, hasLength(1));
+  });
+
+  testWidgets('ecrã de entrada permite começar sem conta', (tester) async {
+    await setUpUser(tester);
+    await tester.tap(find.byTooltip('Definições'));
+    await tester.pumpAndSettle();
+    await tapText(tester, 'Conta e sincronização');
+    await tester.enterText(find.byKey(const Key('cloud-email')), 'eu@exemplo.ao');
+    await tester.enterText(find.byKey(const Key('cloud-password')), 'Segura12345');
+    await tester.enterText(find.byKey(const Key('cloud-confirm')), 'Segura12345');
+    final submit = find.widgetWithText(FilledButton, 'Criar conta');
+    await tester.ensureVisible(submit);
+    await tester.pumpAndSettle();
+    await tester.tap(submit);
+    await tester.pumpAndSettle();
+    final shown = tester.widget<SelectableText>(find.byKey(const Key('recovery-code'))).data!;
+    await tester.enterText(find.byKey(const Key('recovery-check')), shown.replaceAll(' – ', '-').split('-').last);
+    await tapText(tester, 'Guardei o código');
+    final signOut = find.byKey(const Key('cloud-signout'));
+    await tester.ensureVisible(signOut);
+    await tester.pumpAndSettle();
+    await tester.tap(signOut);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Terminar sessão'));
+    await tester.pumpAndSettle();
+    final without = find.byKey(const Key('start-without-account'));
+    await tester.ensureVisible(without);
+    await tester.pumpAndSettle();
+    await tester.tap(without);
+    await tester.pumpAndSettle();
+    expect(find.text('Já tenho conta FINTRACK'), findsOneWidget, reason: 'onboarding de raiz');
   });
 
   testWidgets('conta com confirmação por código e entrada num telemóvel novo', (tester) async {

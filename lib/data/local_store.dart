@@ -102,6 +102,10 @@ abstract interface class LocalStore {
   /// fica tudo restaurado, ou nada muda.
   Future<void> replaceAll(Snapshot snapshot);
 
+  /// Apaga todos os dados e definições (fim de sessão da conta). A base fica
+  /// aberta, vazia, com as categorias de origem.
+  Future<void> clearAll();
+
   Future<void> close();
 }
 
@@ -333,6 +337,9 @@ class MemoryLocalStore implements LocalStore, LocalStoreFactory {
       ..clear()
       ..addAll(s.kixikilaRecords);
   }
+
+  @override
+  Future<void> clearAll() => wipe();
 
   @override
   Future<void> close() async => closed = true;
