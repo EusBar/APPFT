@@ -314,14 +314,6 @@ class CloudController extends Notifier<CloudState> {
     }
   }
 
-  /// Token de acesso válido para serviços do FINTRACK (ex.: Copilot).
-  /// `null` sem sessão.
-  Future<String?> accessToken() async {
-    final store = _store;
-    if (store == null) return null;
-    return (await _session(store))?.accessToken;
-  }
-
   /// Sincroniza agora. Devolve o relatório, ou `null` sem sessão.
   Future<SyncReport?> syncNow() async {
     final store = _store;

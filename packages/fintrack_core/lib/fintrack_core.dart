@@ -3,6 +3,8 @@ library;
 
 export 'src/account.dart';
 export 'src/ai/ai_guard.dart';
+export 'src/ai/ask.dart';
+export 'src/ai/insights.dart';
 export 'src/ai/number_validator.dart';
 export 'src/ai/smart_entry.dart';
 export 'src/auto_lock.dart';

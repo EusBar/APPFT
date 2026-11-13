@@ -10,7 +10,7 @@ import '../finance/finance_data.dart';
 import '../finance/movement_form_screen.dart';
 import '../finance/movement_tile.dart';
 import '../security/session.dart';
-import 'copilot_card.dart';
+import 'ask_card.dart';
 
 /// Separador FINTRACK AI. Nesta versão tudo corre no telemóvel, sem
 /// Internet: Smart Entry por texto ou SMS colado e o AI Guard.
@@ -87,6 +87,7 @@ class _AiViewState extends ConsumerState<AiView> {
     final colors = theme.extension<FtColors>()!;
     final muted = theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
     final alerts = AiGuard.scan(widget.data.ledger, today: DateTime.now(), dismissed: _dismissed);
+    final currency = ref.watch(sessionProvider.select((s) => s.profile?.mainCurrency)) ?? Currency.aoa;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(FtSpace.lg, FtSpace.sm, FtSpace.lg, 96),
@@ -97,14 +98,14 @@ class _AiViewState extends ConsumerState<AiView> {
             const SizedBox(width: FtSpace.sm),
             Expanded(
               child: Text(
-                'Nada é gravado sem a sua confirmação · Smart Entry e AI Guard funcionam sem Internet',
+                'Tudo corre no seu telemóvel, sem Internet · nada é gravado sem a sua confirmação',
                 style: muted?.copyWith(color: colors.aiAccent),
               ),
             ),
           ],
         ),
         const SizedBox(height: FtSpace.md),
-        CopilotCard(data: widget.data),
+        AskCard(data: widget.data, currency: currency, discreet: widget.discreet),
         const SizedBox(height: FtSpace.lg),
         _Card(
           accent: colors.aiAccent,
@@ -142,6 +143,8 @@ class _AiViewState extends ConsumerState<AiView> {
             ],
           ],
         ),
+        const SizedBox(height: FtSpace.lg),
+        TrendsCard(data: widget.data, currency: currency, discreet: widget.discreet),
         const SizedBox(height: FtSpace.lg),
         Row(
           children: [
