@@ -51,7 +51,7 @@ void main() {
 
   setUp(() async {
     cloud = MemoryCloudApi();
-    session = await cloud.signUp('eu@exemplo.ao', 'Segura12345');
+    session = (await cloud.signUp('eu@exemplo.ao', 'Segura12345'))!;
     crypto = CloudCrypto(CloudCrypto.newDataKey());
   });
 

@@ -261,9 +261,9 @@ class HttpCloudApi implements CloudApi {
         ));
     _check(r);
     return [
-      for (final row in jsonDecode(r.body) as List<Object?>)
+      for (final row in (jsonDecode(r.body) as List<Object?>).cast<Map<String, Object?>>())
         RemoteDevice(
-          id: (row! as Map<String, Object?>)['id']! as String,
+          id: row['id']! as String,
           name: row['name']! as String,
           platform: row['platform']! as String,
           createdAt: DateTime.parse(row['created_at']! as String),
