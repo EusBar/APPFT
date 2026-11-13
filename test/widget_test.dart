@@ -4,6 +4,7 @@ import 'package:fintrack/data/local_store.dart';
 import 'package:fintrack/cloud/cloud_api.dart';
 import 'package:fintrack/cloud/cloud_controller.dart';
 import 'package:fintrack/main.dart';
+import 'package:fintrack/onboarding/onboarding_screen.dart';
 import 'package:fintrack/notifications/reminders.dart';
 import 'package:fintrack/security/biometric_key_store.dart';
 import 'package:fintrack/security/pin_vault.dart';
@@ -516,7 +517,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(without);
     await tester.pumpAndSettle();
-    expect(find.text('Já tenho conta FINTRACK'), findsOneWidget, reason: 'onboarding de raiz');
+    expect(find.byType(OnboardingScreen), findsOneWidget, reason: 'onboarding de raiz');
   });
 
   testWidgets('conta com confirmação por código e entrada num telemóvel novo', (tester) async {
