@@ -90,8 +90,8 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Gerar pasta iOS
-        run: flutter create --platforms=ios --org ao.fintrack --project-name fintrack .
+      - name: Gerar pastas (o gerador de ícones precisa das duas)
+        run: flutter create --platforms=android,ios --org ao.fintrack --project-name fintrack .
 
       - name: Configurar iOS
         run: python3 tool/configure_ios.py
