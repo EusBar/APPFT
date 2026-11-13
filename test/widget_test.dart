@@ -512,6 +512,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Terminar sessão'));
     await tester.pumpAndSettle();
+    // Espera que o aviso desapareça (tapa o fundo do ecrã).
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
     final without = find.byKey(const Key('start-without-account'));
     await tester.ensureVisible(without);
     await tester.pumpAndSettle();
