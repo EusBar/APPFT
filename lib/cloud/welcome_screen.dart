@@ -105,12 +105,19 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                 const SizedBox(height: FtSpace.xl),
                 Row(
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(FtRadius.md),
-                      child: Image.asset('assets/icon/icon.png', width: 44, height: 44),
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: scheme.primary,
+                        borderRadius: BorderRadius.circular(FtRadius.md),
+                      ),
+                      child: Icon(Icons.insights, color: scheme.onPrimary),
                     ),
                     const SizedBox(width: FtSpace.md),
-                    Text('FINTRACK', style: theme.textTheme.titleLarge?.copyWith(letterSpacing: 2, fontWeight: FontWeight.w700)),
+                    Flexible(
+                      child: Text('FINTRACK', style: theme.textTheme.titleLarge?.copyWith(letterSpacing: 2, fontWeight: FontWeight.w700)),
+                    ),
                   ],
                 ),
                 const SizedBox(height: FtSpace.lg),
