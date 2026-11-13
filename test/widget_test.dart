@@ -63,6 +63,15 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> skipWelcome(WidgetTester tester) async {
+    expect(find.text('Criar conta grátis'), findsOneWidget, reason: 'vitrine na primeira abertura');
+    final without = find.byKey(const Key('start-without-account'));
+    await tester.ensureVisible(without);
+    await tester.pumpAndSettle();
+    await tester.tap(without);
+    await tester.pumpAndSettle();
+  }
+
   /// Faz scroll até ao botão antes de tocar (o ecrã de teste é 800x600).
   Future<void> tapText(WidgetTester tester, String text) async {
     // Listas só constroem o que está perto do ecrã: desliza até encontrar.
@@ -153,15 +162,6 @@ void main() {
   });
 
   /// PIN criado e onboarding feito com uma conta de 100 000,00 Kz.
-  Future<void> skipWelcome(WidgetTester tester) async {
-    expect(find.text('Criar conta grátis'), findsOneWidget, reason: 'vitrine na primeira abertura');
-    final without = find.byKey(const Key('start-without-account'));
-    await tester.ensureVisible(without);
-    await tester.pumpAndSettle();
-    await tester.tap(without);
-    await tester.pumpAndSettle();
-  }
-
   Future<void> setUpUser(WidgetTester tester) async {
     await pumpApp(tester);
     await typePin(tester, '482917');
