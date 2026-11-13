@@ -37,7 +37,7 @@ void main() {
     bio = MemoryBiometricKeyStore();
   });
 
-  Future<void> pumpApp(WidgetTester tester) async {
+  Future<void> pumpApp(WidgetTester tester, {bool skipIntro = true}) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -53,6 +53,17 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    if (skipIntro && find.byKey(const Key('start-without-account')).evaluate().isNotEmpty) {
+      await startWithoutAccount(tester);
+    }
+  }
+
+  Future<void> startWithoutAccount(WidgetTester tester) async {
+    final without = find.byKey(const Key('start-without-account'));
+    await tester.ensureVisible(without);
+    await tester.pumpAndSettle();
+    await tester.tap(without);
+    await tester.pumpAndSettle();
   }
 
   Future<void> typePin(WidgetTester tester, String pin) async {
@@ -61,16 +72,13 @@ void main() {
       await tester.pump();
     }
     await tester.pumpAndSettle();
+    // Depois de criar o PIN, a oferta de biometria: recusa por omissão.
+    if (find.text('Agora não').evaluate().isNotEmpty) {
+      await tester.tap(find.text('Agora não'));
+      await tester.pumpAndSettle();
+    }
   }
 
-  Future<void> skipWelcome(WidgetTester tester) async {
-    expect(find.text('Criar conta grátis'), findsOneWidget, reason: 'vitrine na primeira abertura');
-    final without = find.byKey(const Key('start-without-account'));
-    await tester.ensureVisible(without);
-    await tester.pumpAndSettle();
-    await tester.tap(without);
-    await tester.pumpAndSettle();
-  }
 
   /// Faz scroll até ao botão antes de tocar (o ecrã de teste é 800x600).
   Future<void> tapText(WidgetTester tester, String text) async {
@@ -88,9 +96,25 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('sem PIN, o app abre na criação do PIN', (tester) async {
-    await pumpApp(tester);
+  testWidgets('primeira abertura: vitrine, depois PIN e oferta de biometria', (tester) async {
+    await pumpApp(tester, skipIntro: false);
+    expect(find.text('Criar conta grátis'), findsOneWidget);
+    expect(find.text('Crie um PIN de 6 dígitos'), findsNothing);
+    await startWithoutAccount(tester);
     expect(find.text('Crie um PIN de 6 dígitos'), findsOneWidget);
+
+    for (final pin in ['482917', '482917']) {
+      for (final digit in pin.split('')) {
+        await tester.tap(find.widgetWithText(InkWell, digit));
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
+    }
+    expect(find.text('Desbloquear com impressão digital?'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Ativar'));
+    await tester.pumpAndSettle();
+    expect(bio.stored, hasLength(32));
+    expect(find.text('Como se chama?'), findsOneWidget);
   });
 
   testWidgets('recusa um PIN trivial com explicação', (tester) async {
@@ -114,7 +138,6 @@ void main() {
     await pumpApp(tester);
     await typePin(tester, '482917');
     await typePin(tester, '482917');
-    await skipWelcome(tester);
 
     // Passo 1: nome (vazio é recusado).
     expect(find.text('Como se chama?'), findsOneWidget);
@@ -166,7 +189,6 @@ void main() {
     await pumpApp(tester);
     await typePin(tester, '482917');
     await typePin(tester, '482917');
-    await skipWelcome(tester);
     await tester.enterText(find.byKey(const Key('profile-name')), 'Eusébio');
     await tapText(tester, 'Continuar');
     await tapText(tester, 'Continuar');
@@ -582,8 +604,6 @@ void main() {
     await tapText(tester, 'Apagar tudo e repor');
     await tester.tap(find.widgetWithText(FilledButton, 'Apagar tudo'));
     await tester.pumpAndSettle();
-    await typePin(tester, '482917');
-    await typePin(tester, '482917');
     final signIn = find.byKey(const Key('welcome-signin'));
     await tester.ensureVisible(signIn);
     await tester.pumpAndSettle();
@@ -600,6 +620,11 @@ void main() {
     await tester.enterText(find.byKey(const Key('email-code')), '654321');
     await tester.tap(find.text('Confirmar'));
     await tester.pumpAndSettle();
+
+    // Só depois da conta vem o PIN; os dados chegam a seguir.
+    expect(find.text('Crie um PIN de 6 dígitos'), findsOneWidget);
+    await typePin(tester, '482917');
+    await typePin(tester, '482917');
 
     // Os dados voltaram e o perfil abre o Início.
     expect(find.text('Olá, Eusébio'), findsOneWidget);
@@ -658,7 +683,6 @@ void main() {
     await pumpApp(tester);
     await typePin(tester, '482917');
     await typePin(tester, '482917');
-    await skipWelcome(tester);
     await tapText(tester, 'Política de privacidade');
     expect(find.text('Política de Privacidade do FINTRACK'), findsOneWidget);
     expect(find.textContaining('apenas no seu telemóvel'), findsWidgets);
@@ -668,7 +692,6 @@ void main() {
     await pumpApp(tester);
     await typePin(tester, '482917');
     await typePin(tester, '482917');
-    await skipWelcome(tester);
     await tester.enterText(find.byKey(const Key('profile-name')), 'Rui');
     await tapText(tester, 'Continuar');
     await tapText(tester, 'Continuar');

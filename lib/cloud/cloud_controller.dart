@@ -247,9 +247,28 @@ class CloudController extends Notifier<CloudState> {
     return const CloudReady();
   }
 
+  /// Sessão aberta antes de existir PIN (primeira abertura): fica só em
+  /// memória até a base cifrada ser criada.
+  (CloudSession, Uint8List, String)? _parked;
+
+  /// Depois de criar o PIN: guarda a sessão estacionada e traz os dados.
+  Future<void> adoptParked() async {
+    final parked = _parked;
+    if (parked == null) return;
+    _parked = null;
+    final (session, key, email) = parked;
+    _pendingEmail = email;
+    await _remember(session, key);
+    await syncNow();
+  }
+
   Future<void> _remember(CloudSession s, Uint8List key) async {
     final store = _store;
-    if (store == null) throw StateError('App bloqueado');
+    if (store == null) {
+      _parked = (s, key, s.email.isEmpty ? _pendingEmail! : s.email);
+      _clearPending();
+      return;
+    }
     await store.setSetting(_kEmail, s.email.isEmpty ? _pendingEmail : s.email);
     await store.setSetting(_kRefresh, s.refreshToken);
     await store.setSetting(_kKey, base64Encode(key));

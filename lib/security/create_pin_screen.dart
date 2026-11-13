@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../design/backdrop.dart';
 import '../design/tokens.dart';
+import '../cloud/cloud_controller.dart';
 import 'pin_pad.dart';
 import 'session.dart';
 
@@ -34,6 +35,33 @@ class CreatePinScreen extends ConsumerStatefulWidget {
 class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
   String? _first;
   String? _error;
+  bool _saving = false;
+  bool _syncing = false;
+
+  /// Segundo método de desbloqueio, logo a seguir ao PIN.
+  Future<void> _offerBiometrics(String pin) async {
+    if (!await ref.read(biometricKeyStoreProvider).isAvailable() || !mounted) return;
+    final yes = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.fingerprint, size: 40),
+        title: const Text('Desbloquear com impressão digital?'),
+        content: const Text('Abra o FINTRACK com a impressão digital ou o rosto. '
+            'O PIN continua a servir sempre que precisar.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Agora não')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Ativar')),
+        ],
+      ),
+    );
+    if (yes != true) return;
+    final result = await ref.read(sessionProvider.notifier).enableBiometrics(pin);
+    if (!mounted || result == BiometricSetup.enabled) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text('Não foi possível ativar a biometria. Pode tentar mais tarde nas Definições.'),
+    ));
+  }
 
   Future<void> _onCompleted(String pin) async {
     if (_first == null) {
@@ -53,9 +81,18 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
       return;
     }
 
+    final session = ref.read(sessionProvider.notifier);
+    final cloud = ref.read(cloudProvider.notifier);
+    setState(() => _saving = true);
     try {
-      await ref.read(sessionProvider.notifier).createPin(pin);
+      await session.createPin(pin, beforeReady: () async {
+        await _offerBiometrics(pin);
+        // Entrou na conta antes do PIN: os dados vêm agora da nuvem.
+        if (mounted) setState(() => _syncing = true);
+        await cloud.adoptParked();
+      });
     } catch (_) {
+      if (mounted) setState(() => _saving = false);
       if (!mounted) return;
       setState(() {
         _first = null;
@@ -110,7 +147,17 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
                         ),
                 ),
               ),
-              PinPad(onCompleted: _onCompleted),
+              if (_saving)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: FtSpace.xl),
+                  child: Column(children: [
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: FtSpace.md),
+                    Text(_syncing ? 'A trazer os seus dados da nuvem…' : 'A proteger o FINTRACK…'),
+                  ]),
+                )
+              else
+                PinPad(onCompleted: _onCompleted),
             ],
           ),
             ),

@@ -63,6 +63,7 @@ class _FintrackAppState extends ConsumerState<FintrackApp>
   Widget build(BuildContext context) {
     final status = ref.watch(sessionProvider.select((s) => s.status));
     final signedOut = ref.watch(sessionProvider.select((s) => s.signedOut));
+    final introDone = ref.watch(sessionProvider.select((s) => s.introDone));
 
     // Ao bloquear, fecha os ecrãs abertos por cima do inicial (definições,
     // nova conta), para que nada fique visível sobre o ecrã de bloqueio.
@@ -87,6 +88,7 @@ class _FintrackAppState extends ConsumerState<FintrackApp>
       ),
       home: switch (status) {
         SessionStatus.loading => const _LoadingScreen(),
+        SessionStatus.needsPin when !introDone => const WelcomeScreen(),
         SessionStatus.needsPin => const CreatePinScreen(),
         SessionStatus.locked => const LockScreen(),
         SessionStatus.onboarding when signedOut => const WelcomeScreen(),

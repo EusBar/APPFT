@@ -40,7 +40,12 @@ class SessionState {
     this.biometricEnabled = false,
     this.horizon = AvailableHorizon.endOfMonth,
     this.signedOut = false,
+    this.introDone = false,
   });
+
+  /// Primeira abertura: já passou pela vitrine (conta ou sem conta) e
+  /// segue para o PIN.
+  final bool introDone;
 
   /// Acabou de terminar a sessão da conta: mostra-se o ecrã de entrada.
   final bool signedOut;
@@ -71,6 +76,7 @@ class SessionState {
     bool? biometricEnabled,
     AvailableHorizon? horizon,
     bool? signedOut,
+    bool? introDone,
   }) =>
       SessionState(
         status: status ?? this.status,
@@ -80,6 +86,7 @@ class SessionState {
         biometricEnabled: biometricEnabled ?? this.biometricEnabled,
         horizon: horizon ?? this.horizon,
         signedOut: signedOut ?? this.signedOut,
+        introDone: introDone ?? this.introDone,
       );
 }
 
@@ -122,7 +129,9 @@ class SessionController extends Notifier<SessionState> {
     );
   }
 
-  Future<void> createPin(String pin) async {
+  /// Cria o PIN e a base cifrada. [beforeReady] corre com a base já aberta,
+  /// antes de o app mudar de ecrã (biometria, dados da conta).
+  Future<void> createPin(String pin, {Future<void> Function()? beforeReady}) async {
     final factory = ref.read(localStoreFactoryProvider);
     // Um PIN novo implica uma chave nova: restos de dados antigos seriam
     // ilegíveis, por isso apagam-se antes.
@@ -131,11 +140,17 @@ class SessionController extends Notifier<SessionState> {
     await ref.read(secretStoreProvider).delete(_kBiometric);
     state = state.copyWith(biometricEnabled: false);
     final key = await ref.read(pinVaultProvider).createPin(pin);
-    await _openStore(key);
-    // Primeira abertura: a vitrine apresenta o FINTRACK antes do perfil.
-    if (state.status == SessionStatus.onboarding) {
-      await _store?.setSetting(_kSignedOut, '1');
-      state = state.copyWith(signedOut: true);
+    await _openStore(key, publish: beforeReady == null);
+    if (beforeReady == null) return;
+    try {
+      await beforeReady();
+    } finally {
+      final profile = await _store?.loadProfile();
+      state = state.copyWith(
+        status: profile == null ? SessionStatus.onboarding : SessionStatus.unlocked,
+        profile: profile,
+        signedOut: false,
+      );
     }
   }
 
@@ -195,11 +210,12 @@ class SessionController extends Notifier<SessionState> {
     state = state.copyWith(biometricEnabled: false);
   }
 
-  Future<void> _openStore(Uint8List key) async {
+  Future<void> _openStore(Uint8List key, {bool publish = true}) async {
     try {
       final store = await ref.read(localStoreFactoryProvider).open(key);
       final profile = await store.loadProfile();
       _store = store;
+      if (!publish) return;
       state = state.copyWith(
         status: profile == null ? SessionStatus.onboarding : SessionStatus.unlocked,
         profile: profile,
@@ -247,8 +263,15 @@ class SessionController extends Notifier<SessionState> {
   }
 
   /// No ecrã de entrada, escolheu começar sem conta.
+  /// Na vitrine, avança: antes do PIN segue para a criação do PIN; depois de
+  /// terminar sessão, segue para o perfil sem conta.
   Future<void> startWithoutAccount() async {
-    await _store?.setSetting(_kSignedOut, null);
+    final store = _store;
+    if (store == null) {
+      state = state.copyWith(introDone: true);
+      return;
+    }
+    await store.setSetting(_kSignedOut, null);
     state = state.copyWith(signedOut: false);
   }
 
