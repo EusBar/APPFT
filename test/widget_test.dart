@@ -468,7 +468,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Terminar sessão'));
     await tester.pumpAndSettle();
-    expect(find.text('Entrar no FINTRACK'), findsOneWidget);
+    expect(find.text('Criar conta grátis'), findsOneWidget, reason: 'vitrine de entrada');
     expect(find.text('Olá, Eusébio'), findsNothing);
     expect(find.byTooltip('Definições'), findsNothing, reason: 'sem caminho de volta aos dados');
     expect(data.profile, isNull);
@@ -478,6 +478,13 @@ void main() {
     expect(data.settings['cloud.deviceId'], deviceId, reason: 'continua o mesmo aparelho');
 
     // Entrar de novo traz os dados de volta.
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    final signIn = find.byKey(const Key('welcome-signin'));
+    await tester.ensureVisible(signIn);
+    await tester.pumpAndSettle();
+    await tester.tap(signIn);
+    await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('cloud-email')), 'eu@exemplo.ao');
     await tester.enterText(find.byKey(const Key('cloud-password')), 'Segura12345');
     final enter = find.widgetWithText(FilledButton, 'Entrar');

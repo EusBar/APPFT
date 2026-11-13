@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'cloud/account_screen.dart';
+import 'cloud/welcome_screen.dart';
 import 'cloud/cloud_controller.dart';
 import 'design/tokens.dart';
 import 'home/home_screen.dart';
@@ -89,7 +89,7 @@ class _FintrackAppState extends ConsumerState<FintrackApp>
         SessionStatus.loading => const _LoadingScreen(),
         SessionStatus.needsPin => const CreatePinScreen(),
         SessionStatus.locked => const LockScreen(),
-        SessionStatus.onboarding when signedOut => const AccountScreen(key: ValueKey('entry'), entry: true),
+        SessionStatus.onboarding when signedOut => const WelcomeScreen(),
         SessionStatus.onboarding => const OnboardingScreen(),
         SessionStatus.unlocked => const HomeScreen(),
       },
