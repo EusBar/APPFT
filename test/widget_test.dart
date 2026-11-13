@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:fintrack/data/local_store.dart';
 import 'package:fintrack/cloud/cloud_api.dart';
 import 'package:fintrack/premium/billing.dart';
+import 'package:fintrack/premium/paywall_screen.dart';
 import 'package:fintrack/cloud/cloud_controller.dart';
 import 'package:fintrack/main.dart';
 import 'package:fintrack/onboarding/onboarding_screen.dart';
@@ -691,7 +692,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('FINTRACK Premium'), findsOneWidget);
     final buy = find.byKey(const Key('paywall-buy'));
-    await tester.ensureVisible(buy);
+    await tester.scrollUntilVisible(
+      buy,
+      300,
+      scrollable: find.descendant(of: find.byType(PaywallScreen), matching: find.byType(Scrollable)).first,
+    );
     await tester.pumpAndSettle();
     expect(find.text('Poupe 33%'), findsOneWidget, reason: 'anual contra 12 meses');
     await tester.tap(buy);
