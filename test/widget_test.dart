@@ -459,6 +459,25 @@ void main() {
     expect(data.settings['cloud.email'], 'eu@exemplo.ao');
   });
 
+  testWidgets('FINTRACK AI: Smart Entry prepara, o utilizador revê e grava', (tester) async {
+    await setUpUser(tester);
+    await tester.tap(find.text('IA'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nada a assinalar.'), findsOneWidget);
+
+    await tester.enterText(find.byKey(const Key('smart-entry')), 'Gastei 12 500 Kz no Kero hoje');
+    await tapText(tester, 'Preparar movimento');
+    expect(find.text('Alimentação'), findsOneWidget);
+    expect(data.ledger, isEmpty, reason: 'nada é gravado sem confirmação');
+
+    await tapText(tester, 'Rever e gravar');
+    expect(find.text('Rever movimento'), findsOneWidget);
+    await tapText(tester, 'Gravar');
+    expect(data.ledger.single.amount, const Money(1250000, Currency.aoa));
+    expect(data.ledger.single.categoryId, 'exp.alimentacao');
+    expect(data.ledger.single.origin, MovementOrigin.smartEntry);
+  });
+
   testWidgets('biometria: ativar com PIN e desbloquear sem PIN', (tester) async {
     await setUpUser(tester);
 

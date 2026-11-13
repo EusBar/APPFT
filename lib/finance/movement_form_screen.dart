@@ -15,11 +15,15 @@ class MovementFormScreen extends ConsumerStatefulWidget {
     required this.data,
     this.initialKind = MovementKind.expense,
     this.editing,
+    this.draft,
   });
 
   final FinanceData data;
   final MovementKind initialKind;
   final Movement? editing;
+
+  /// Rascunho do Smart Entry: preenche o formulário para o utilizador rever.
+  final EntryDraft? draft;
 
   @override
   ConsumerState<MovementFormScreen> createState() => _MovementFormScreenState();
@@ -54,6 +58,16 @@ class _MovementFormScreenState extends ConsumerState<MovementFormScreen> {
     _toAccountId = e?.toAccountId ?? _firstOther(_accountId);
     _categoryId = e?.categoryId;
     _date = e?.date ?? DateTime.now();
+    final d = widget.draft;
+    if (e == null && d != null) {
+      if (d.kind != null && d.kind != MovementKind.transfer) _kind = d.kind!;
+      if (d.accountId != null) _accountId = d.accountId;
+      _categoryId = d.categoryId;
+      _categoryTouched = d.categoryId != null;
+      _date = d.date;
+      if (d.amount != null) _amount.text = d.amount!.format(withSymbol: false);
+      _description.text = d.description;
+    }
     if (e != null) {
       _amount.text = e.amount.format(withSymbol: false);
       _toAmount.text = e.toAmount?.format(withSymbol: false) ?? '';
@@ -168,6 +182,8 @@ class _MovementFormScreenState extends ConsumerState<MovementFormScreen> {
         note: _note.text,
         date: _date,
         replaces: widget.editing?.id,
+        origin: widget.editing?.origin ??
+            (widget.draft != null ? MovementOrigin.smartEntry : MovementOrigin.manual),
         createdAt: DateTime.now(),
       );
     } on ArgumentError catch (e) {
@@ -290,7 +306,11 @@ class _MovementFormScreenState extends ConsumerState<MovementFormScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.editing == null ? 'Novo movimento' : 'Corrigir movimento'),
+        title: Text(widget.editing != null
+            ? 'Corrigir movimento'
+            : widget.draft != null
+                ? 'Rever movimento'
+                : 'Novo movimento'),
       ),
       body: SafeArea(
         child: ListView(

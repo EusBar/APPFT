@@ -2,6 +2,9 @@
 library;
 
 export 'src/account.dart';
+export 'src/ai/ai_guard.dart';
+export 'src/ai/number_validator.dart';
+export 'src/ai/smart_entry.dart';
 export 'src/auto_lock.dart';
 export 'src/category.dart';
 export 'src/commitment.dart';

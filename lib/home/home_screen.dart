@@ -2,6 +2,7 @@ import 'package:fintrack_core/fintrack_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../ai/ai_view.dart';
 import '../cloud/cloud_controller.dart';
 import '../design/backdrop.dart';
 import '../design/country_photos.dart';
@@ -52,16 +53,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget? _fab(FinanceData? data, Currency? mainCurrency) {
     if (data == null) return null;
-    final (String, Widget Function()) action = switch (_tab) {
+    final (String, Widget Function())? action = switch (_tab) {
+      3 => null,
       2 => switch (_plan) {
           PlanSection.commitments => ('Compromisso', () => CommitmentFormScreen(data: data)),
           PlanSection.budgets => ('Orçamento', () => BudgetFormScreen(data: data)),
           PlanSection.goals => ('Objetivo', () => GoalFormScreen(data: data)),
           PlanSection.kixikila => ('Kixikila', () => KixikilaFormScreen(data: data)),
         },
-      3 => ('Nova conta', () => NewAccountScreen(defaultCurrency: mainCurrency ?? Currency.aoa)),
+      4 => ('Nova conta', () => NewAccountScreen(defaultCurrency: mainCurrency ?? Currency.aoa)),
       _ => ('Movimento', () => MovementFormScreen(data: data)),
     };
+    if (action == null) return null;
     final (label, open) = action;
     return FloatingActionButton.extended(
       heroTag: 'fab',
@@ -99,6 +102,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       0 => profile == null ? 'FINTRACK' : 'Olá, ${profile.greetingName}',
       1 => 'Movimentos',
       2 => 'Planear',
+      3 => 'FINTRACK AI',
       _ => 'Contas',
     };
 
@@ -160,6 +164,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               label: 'Planear',
             ),
             NavigationDestination(
+              icon: Icon(Icons.auto_awesome_outlined),
+              selectedIcon: Icon(Icons.auto_awesome),
+              label: 'IA',
+            ),
+            NavigationDestination(
               icon: Icon(Icons.account_balance_wallet_outlined),
               selectedIcon: Icon(Icons.account_balance_wallet),
               label: 'Contas',
@@ -189,6 +198,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 section: _plan,
                 onSection: (s) => setState(() => _plan = s),
               ),
+            3 => AiView(data: data, discreet: session.discreet),
             _ => _AccountsView(data: data, discreet: session.discreet),
           },
         ),
