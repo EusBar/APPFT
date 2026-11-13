@@ -10,6 +10,8 @@ import '../design/labels.dart';
 import '../design/tokens.dart';
 import '../finance/finance_data.dart';
 import '../security/session.dart';
+import '../premium/paywall_screen.dart';
+import '../premium/premium.dart';
 import 'pdf_report.dart';
 
 /// Relatório mensal com indicadores, categorias e exportação PDF/CSV.
@@ -74,6 +76,12 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
   }
 
   Future<void> _exportPdf(FinanceData data, PeriodReport report) async {
+    if (!ref.read(premiumProvider).unlocked) {
+      await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => const PaywallScreen(feature: PremiumFeature.pdf),
+      ));
+      return;
+    }
     if (!await _confirmExport('PDF')) return;
     setState(() => _busy = true);
     try {

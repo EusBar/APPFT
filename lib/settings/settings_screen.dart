@@ -7,6 +7,8 @@ import '../cloud/cloud_controller.dart';
 import '../design/country_photos.dart';
 import '../design/labels.dart';
 import '../design/tokens.dart';
+import '../premium/paywall_screen.dart';
+import '../premium/premium.dart';
 import '../finance/finance_data.dart';
 import '../notifications/reminders.dart';
 import '../privacy/consent.dart';
@@ -74,6 +76,21 @@ class SettingsScreen extends ConsumerWidget {
               MaterialPageRoute<void>(builder: (_) => const ProfileScreen()),
             ),
           ),
+          Builder(builder: (context) {
+            final p = ref.watch(premiumProvider);
+            return ListTile(
+              key: const Key('settings-premium'),
+              leading: const Icon(Icons.workspace_premium_rounded),
+              title: const Text('FINTRACK Premium'),
+              subtitle: Text(p.subscribed
+                  ? 'Ativo'
+                  : p.inTrial
+                      ? 'Experiência grátis: ${p.trialDaysLeft} ${p.trialDaysLeft == 1 ? 'dia' : 'dias'}'
+                      : 'IA, tendências e relatórios em PDF'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const PaywallScreen())),
+            );
+          }),
           ListTile(
             leading: const Icon(Icons.cloud_sync_outlined),
             title: const Text('Conta e sincronização'),

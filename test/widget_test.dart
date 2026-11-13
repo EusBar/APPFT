@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:fintrack/data/local_store.dart';
 import 'package:fintrack/cloud/cloud_api.dart';
+import 'package:fintrack/premium/billing.dart';
 import 'package:fintrack/cloud/cloud_controller.dart';
 import 'package:fintrack/main.dart';
 import 'package:fintrack/onboarding/onboarding_screen.dart';
@@ -28,9 +29,11 @@ void main() {
   late MemoryBiometricKeyStore bio;
   late MemoryReminders reminders;
   late MemoryCloudApi cloud;
+  late MemoryBilling billing;
 
   setUp(() {
     cloud = MemoryCloudApi();
+    billing = MemoryBilling();
     reminders = MemoryReminders();
     secrets = MemorySecretStore();
     data = MemoryLocalStore();
@@ -56,6 +59,7 @@ void main() {
           remindersProvider.overrideWithValue(reminders),
           cloudApiProvider.overrideWithValue(cloud),
           cloudDeriverProvider.overrideWithValue(fakeDerive),
+          billingProvider.overrideWithValue(billing),
         ],
         child: const FintrackApp(),
       ),
@@ -672,6 +676,33 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pumpAndSettle();
     expect(find.textContaining('Ainda não sei responder'), findsOneWidget);
+  });
+
+  testWidgets('Premium: acabada a experiência, a IA fica bloqueada e a compra desbloqueia', (tester) async {
+    secrets.values['premium.trialStart'] =
+        '${DateTime.now().subtract(const Duration(days: 20)).millisecondsSinceEpoch}';
+    await setUpUser(tester);
+    await tester.tap(find.text('IA'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('locked-pulse')), findsOneWidget);
+    expect(find.text('PULSO FINANCEIRO'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('locked-pulse')));
+    await tester.pumpAndSettle();
+    expect(find.text('FINTRACK Premium'), findsOneWidget);
+    final buy = find.byKey(const Key('paywall-buy'));
+    await tester.ensureVisible(buy);
+    await tester.pumpAndSettle();
+    expect(find.text('Poupe 33%'), findsOneWidget, reason: 'anual contra 12 meses');
+    await tester.tap(buy);
+    await tester.pumpAndSettle();
+    expect(billing.bought, [PremiumIds.yearly]);
+    expect(secrets.values['premium.product'], PremiumIds.yearly);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('locked-pulse')), findsNothing);
+    expect(find.text('PULSO FINANCEIRO'), findsOneWidget);
   });
 
   testWidgets('biometria: ativar com PIN e desbloquear sem PIN', (tester) async {

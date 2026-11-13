@@ -10,6 +10,8 @@ import '../finance/finance_data.dart';
 import '../finance/movement_form_screen.dart';
 import '../finance/movement_tile.dart';
 import '../security/session.dart';
+import '../premium/paywall_screen.dart';
+import '../premium/premium.dart';
 import 'ai_widgets.dart';
 
 /// Separador FINTRACK AI. Nesta versão tudo corre no telemóvel, sem
@@ -122,13 +124,21 @@ class _AiViewState extends ConsumerState<AiView> {
       key: const Key('ai-list'),
       padding: const EdgeInsets.fromLTRB(FtSpace.lg, FtSpace.sm, FtSpace.lg, 96),
       children: [
+        _TrialBanner(),
         Reveal(
-          child: PulseHero(pulse: pulse, headline: insights.isEmpty ? null : insights.first, discreet: widget.discreet),
+          child: PremiumGate(
+            feature: PremiumFeature.pulse,
+            teaser: 'A nota do seu mês, de 0 a 100, com o porquê.',
+            child: PulseHero(pulse: pulse, headline: insights.isEmpty ? null : insights.first, discreet: widget.discreet),
+          ),
         ),
         const SizedBox(height: FtSpace.lg),
         Reveal(
           delay: 90,
-          child: AskPanel(
+          child: PremiumGate(
+            feature: PremiumFeature.ask,
+            teaser: 'Pergunte em português e veja a resposta com os seus números.',
+            child: AskPanel(
             discreet: widget.discreet,
             engine: () => AskEngine(
               ledger: widget.data.ledger,
@@ -141,15 +151,32 @@ class _AiViewState extends ConsumerState<AiView> {
               horizon: ref.read(sessionProvider).horizon,
             ),
           ),
+          ),
         ),
         if (insights.isNotEmpty) ...[
           section('Para si', Icons.auto_awesome, trailing: '${insights.length} ${insights.length == 1 ? 'observação' : 'observações'}'),
-          Reveal(delay: 180, child: InsightCarousel(insights: insights, discreet: widget.discreet)),
+          Reveal(
+            delay: 180,
+            child: PremiumGate(
+              feature: PremiumFeature.trends,
+              child: InsightCarousel(insights: insights, discreet: widget.discreet),
+            ),
+          ),
         ],
         section('Evolução', Icons.show_chart_rounded),
-        Reveal(delay: 240, child: TrendChart(data: data, currency: currency, discreet: widget.discreet)),
+        Reveal(
+          delay: 240,
+          child: PremiumGate(
+            feature: PremiumFeature.trends,
+            teaser: 'Curvas de 6 meses e o detalhe de cada mês.',
+            child: TrendChart(data: data, currency: currency, discreet: widget.discreet),
+          ),
+        ),
         section('Registo rápido', Icons.bolt_rounded),
-        GlowPanel(
+        PremiumGate(
+          feature: PremiumFeature.smartEntry,
+          teaser: 'Escreva ou cole o SMS do banco: o movimento prepara-se sozinho.',
+          child: GlowPanel(
           glow: colors.aiAccent,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -196,6 +223,7 @@ class _AiViewState extends ConsumerState<AiView> {
               ),
             ],
           ),
+        ),
         ),
         section('AI Guard', Icons.shield_outlined),
         Text(
@@ -355,6 +383,43 @@ class _AlertTile extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Faixa discreta com os dias de experiência grátis que faltam.
+class _TrialBanner extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = ref.watch(premiumProvider);
+    if (!p.inTrial) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    final colors = theme.extension<FtColors>()!;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: FtSpace.md),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const PaywallScreen())),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            color: colors.aiAccent.withValues(alpha: 0.12),
+            border: Border.all(color: colors.aiAccent.withValues(alpha: 0.3)),
+          ),
+          child: Row(children: [
+            Icon(Icons.workspace_premium_rounded, size: 18, color: colors.aiAccent),
+            const SizedBox(width: FtSpace.sm),
+            Expanded(
+              child: Text(
+                'Premium grátis: ${p.trialDaysLeft} ${p.trialDaysLeft == 1 ? 'dia' : 'dias'} de experiência',
+                style: theme.textTheme.labelLarge?.copyWith(color: colors.aiAccent),
+              ),
+            ),
+            Icon(Icons.chevron_right, size: 18, color: colors.aiAccent),
+          ]),
+        ),
       ),
     );
   }
