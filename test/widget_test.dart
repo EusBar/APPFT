@@ -37,6 +37,14 @@ void main() {
     bio = MemoryBiometricKeyStore();
   });
 
+  Future<void> startWithoutAccount(WidgetTester tester) async {
+    final without = find.byKey(const Key('start-without-account'));
+    await tester.ensureVisible(without);
+    await tester.pumpAndSettle();
+    await tester.tap(without);
+    await tester.pumpAndSettle();
+  }
+
   Future<void> pumpApp(WidgetTester tester, {bool skipIntro = true}) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -58,13 +66,6 @@ void main() {
     }
   }
 
-  Future<void> startWithoutAccount(WidgetTester tester) async {
-    final without = find.byKey(const Key('start-without-account'));
-    await tester.ensureVisible(without);
-    await tester.pumpAndSettle();
-    await tester.tap(without);
-    await tester.pumpAndSettle();
-  }
 
   Future<void> typePin(WidgetTester tester, String pin) async {
     for (final digit in pin.split('')) {
