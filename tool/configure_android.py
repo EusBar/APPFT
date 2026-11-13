@@ -21,6 +21,12 @@ if "isCoreLibraryDesugaringEnabled" not in s:
         raise SystemExit("compileOptions não encontrado em build.gradle.kts")
 if "desugar_jdk_libs" not in s:
     s += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
+# A verificação "lint" das bibliotecas encrava em algumas versões (erro
+# interno do lint, não do código). Não é necessária para gerar o APK.
+if "checkReleaseBuilds" not in s:
+    s, n = re.subn(r"android \{\n", "android {\n    lint {\n        checkReleaseBuilds = false\n        abortOnError = false\n    }\n", s, count=1)
+    if n != 1:
+        raise SystemExit("bloco android não encontrado em build.gradle.kts")
 gradle.write_text(s)
 
 manifest = pathlib.Path("android/app/src/main/AndroidManifest.xml")
