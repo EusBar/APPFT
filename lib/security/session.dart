@@ -132,6 +132,11 @@ class SessionController extends Notifier<SessionState> {
     state = state.copyWith(biometricEnabled: false);
     final key = await ref.read(pinVaultProvider).createPin(pin);
     await _openStore(key);
+    // Primeira abertura: a vitrine apresenta o FINTRACK antes do perfil.
+    if (state.status == SessionStatus.onboarding) {
+      await _store?.setSetting(_kSignedOut, '1');
+      state = state.copyWith(signedOut: true);
+    }
   }
 
   Future<UnlockResult> unlock(String pin) async {

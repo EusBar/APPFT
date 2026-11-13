@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -253,47 +255,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     }
   }
 
-  Future<void> _signOut() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Terminar sessão?'),
-        content: const Text('Este telemóvel deixa de sincronizar. Os dados ficam aqui; '
-            'para voltar, entre de novo com o e-mail e a palavra-passe.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Terminar sessão')),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
-    final cloud = ref.read(cloudProvider.notifier);
-    setState(() => _busy = true);
-    final saved = await cloud.flushBeforeSignOut();
-    if (!mounted) return;
-    setState(() => _busy = false);
-    if (!saved) {
-      final force = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Sem ligação à nuvem'),
-          content: const Text('Não foi possível guardar as últimas alterações. Se terminar agora, '
-              'o que mudou desde a última sincronização perde-se.'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Terminar mesmo assim')),
-          ],
-        ),
-      );
-      if (force != true || !mounted) return;
-    }
-    final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-    await cloud.signOut();
-    // Volta à raiz: o ecrã de entrada substitui o início.
-    navigator.popUntil((r) => r.isFirst);
-    messenger.showSnackBar(const SnackBar(content: Text('Sessão terminada. Os dados da conta saíram deste telemóvel.')));
-  }
+  Future<void> _signOut() => confirmSignOut(context, ref);
 
   @override
   Widget build(BuildContext context) {
@@ -551,4 +513,63 @@ class _RecoveryCodeScreenState extends State<RecoveryCodeScreen> {
       ),
     );
   }
+}
+
+/// Terminar sessão (Definições ou Conta): confirma, guarda o que falta na
+/// nuvem e volta à vitrine de entrada.
+Future<void> confirmSignOut(BuildContext context, WidgetRef ref) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Terminar sessão?'),
+      content: const Text('Os dados desta conta saem deste telemóvel e continuam guardados na nuvem, '
+          'cifrados. Para voltar, entre com o e-mail e a palavra-passe.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Terminar sessão')),
+      ],
+    ),
+  );
+  if (ok != true || !context.mounted) return;
+  final cloud = ref.read(cloudProvider.notifier);
+  final navigator = Navigator.of(context);
+  final messenger = ScaffoldMessenger.of(context);
+
+  // Última sincronização, com indicação de progresso.
+  unawaited(showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const PopScope(
+      canPop: false,
+      child: AlertDialog(
+        content: Row(children: [
+          SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 3)),
+          SizedBox(width: FtSpace.md),
+          Expanded(child: Text('A guardar na nuvem…')),
+        ]),
+      ),
+    ),
+  ));
+  final saved = await cloud.flushBeforeSignOut();
+  navigator.pop();
+  if (!saved) {
+    if (!context.mounted) return;
+    final force = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sem ligação à nuvem'),
+        content: const Text('Não foi possível guardar as últimas alterações. Se terminar agora, '
+            'o que mudou desde a última sincronização perde-se.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Terminar mesmo assim')),
+        ],
+      ),
+    );
+    if (force != true) return;
+  }
+  await cloud.signOut();
+  // Volta à raiz: a vitrine de entrada substitui o início.
+  navigator.popUntil((r) => r.isFirst);
+  messenger.showSnackBar(const SnackBar(content: Text('Sessão terminada. Os dados da conta saíram deste telemóvel.')));
 }

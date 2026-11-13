@@ -81,6 +81,14 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const AccountScreen())),
           ),
+          if (ref.watch(cloudProvider.select((c) => c.signedIn)))
+            ListTile(
+              key: const Key('settings-signout'),
+              leading: const Icon(Icons.logout),
+              title: const Text('Terminar sessão'),
+              subtitle: const Text('Sai da conta neste telemóvel; os dados ficam na nuvem.'),
+              onTap: () => confirmSignOut(context, ref),
+            ),
           ListTile(
             leading: const Icon(Icons.category_outlined),
             title: const Text('Categorias'),

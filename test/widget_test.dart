@@ -105,6 +105,7 @@ void main() {
     await pumpApp(tester);
     await typePin(tester, '482917');
     await typePin(tester, '482917');
+    await skipWelcome(tester);
 
     // Passo 1: nome (vazio é recusado).
     expect(find.text('Como se chama?'), findsOneWidget);
@@ -152,10 +153,20 @@ void main() {
   });
 
   /// PIN criado e onboarding feito com uma conta de 100 000,00 Kz.
+  Future<void> skipWelcome(WidgetTester tester) async {
+    expect(find.text('Criar conta grátis'), findsOneWidget, reason: 'vitrine na primeira abertura');
+    final without = find.byKey(const Key('start-without-account'));
+    await tester.ensureVisible(without);
+    await tester.pumpAndSettle();
+    await tester.tap(without);
+    await tester.pumpAndSettle();
+  }
+
   Future<void> setUpUser(WidgetTester tester) async {
     await pumpApp(tester);
     await typePin(tester, '482917');
     await typePin(tester, '482917');
+    await skipWelcome(tester);
     await tester.enterText(find.byKey(const Key('profile-name')), 'Eusébio');
     await tapText(tester, 'Continuar');
     await tapText(tester, 'Continuar');
@@ -512,7 +523,10 @@ void main() {
     final shown = tester.widget<SelectableText>(find.byKey(const Key('recovery-code'))).data!;
     await tester.enterText(find.byKey(const Key('recovery-check')), shown.replaceAll(' – ', '-').split('-').last);
     await tapText(tester, 'Guardei o código');
-    final signOut = find.byKey(const Key('cloud-signout'));
+    // Terminar sessão direto das Definições.
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    final signOut = find.byKey(const Key('settings-signout'));
     await tester.ensureVisible(signOut);
     await tester.pumpAndSettle();
     await tester.tap(signOut);
@@ -570,8 +584,10 @@ void main() {
     await tester.pumpAndSettle();
     await typePin(tester, '482917');
     await typePin(tester, '482917');
-    await tapText(tester, 'Já tenho conta FINTRACK');
-    await tester.tap(find.text('Entrar').first);
+    final signIn = find.byKey(const Key('welcome-signin'));
+    await tester.ensureVisible(signIn);
+    await tester.pumpAndSettle();
+    await tester.tap(signIn);
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('cloud-email')), 'eu@exemplo.ao');
     await tester.enterText(find.byKey(const Key('cloud-password')), 'Segura12345');
@@ -642,6 +658,7 @@ void main() {
     await pumpApp(tester);
     await typePin(tester, '482917');
     await typePin(tester, '482917');
+    await skipWelcome(tester);
     await tapText(tester, 'Política de privacidade');
     expect(find.text('Política de Privacidade do FINTRACK'), findsOneWidget);
     expect(find.textContaining('apenas no seu telemóvel'), findsWidgets);
@@ -651,6 +668,7 @@ void main() {
     await pumpApp(tester);
     await typePin(tester, '482917');
     await typePin(tester, '482917');
+    await skipWelcome(tester);
     await tester.enterText(find.byKey(const Key('profile-name')), 'Rui');
     await tapText(tester, 'Continuar');
     await tapText(tester, 'Continuar');

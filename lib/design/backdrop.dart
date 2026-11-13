@@ -97,7 +97,8 @@ class RotatingBackdrop extends StatefulWidget {
     required this.child,
     this.fallback = FtImage.analytics,
     this.strength = FtBackdropStrength.subtle,
-    this.interval = const Duration(minutes: 2),
+    // Muda o suficiente para se notar, sem distrair do que se está a fazer.
+    this.interval = const Duration(seconds: 45),
   });
 
   final List<String> assets;
@@ -133,7 +134,11 @@ class _RotatingBackdropState extends State<RotatingBackdrop> {
     _timer?.cancel();
     if (widget.assets.length < 2) return;
     _timer = Timer.periodic(widget.interval, (_) {
-      if (mounted) setState(() => _index = (_index + 1) % widget.assets.length);
+      if (!mounted) return;
+      setState(() => _index = (_index + 1) % widget.assets.length);
+      // Prepara já a seguinte, para o fundido não piscar.
+      final next = widget.assets[(_index + 1) % widget.assets.length];
+      precacheImage(AssetImage(next), context).ignore();
     });
   }
 
