@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:fintrack_core/fintrack_core.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 
+import 'snapshot.dart';
+
 /// Perfil do utilizador neste dispositivo.
 class Profile {
   const Profile({required this.name, required this.mainCurrency, this.nickname, this.photo});
@@ -87,6 +89,10 @@ abstract interface class LocalStore {
 
   /// Grava o movimento da ronda e a ligação, numa única transação.
   Future<void> recordKixikila(Movement movement, KixikilaRecord record);
+
+  /// Substitui todos os dados pelos da cópia, numa única transação: ou
+  /// fica tudo restaurado, ou nada muda.
+  Future<void> replaceAll(Snapshot snapshot);
 
   Future<void> close();
 }
@@ -265,6 +271,38 @@ class MemoryLocalStore implements LocalStore, LocalStoreFactory {
 
   @override
   Future<void> addGoalContribution(GoalContribution contribution) async => contributions.add(contribution);
+
+  @override
+  Future<void> replaceAll(Snapshot s) async {
+    profile = s.profile;
+    stored
+      ..clear()
+      ..addAll(s.accounts);
+    ledger
+      ..clear()
+      ..addAll(s.movements);
+    commitmentsById
+      ..clear()
+      ..addAll({for (final c in s.commitments) c.id: c});
+    budgetsById
+      ..clear()
+      ..addAll({for (final b in s.budgets) b.id: b});
+    goalsById
+      ..clear()
+      ..addAll({for (final g in s.goals) g.id: g});
+    contributions
+      ..clear()
+      ..addAll(s.contributions);
+    customCategories
+      ..clear()
+      ..addAll({for (final c in s.categories) c.id: c});
+    kixikilaById
+      ..clear()
+      ..addAll({for (final k in s.kixikilas) k.id: k});
+    kixikilaLog
+      ..clear()
+      ..addAll(s.kixikilaRecords);
+  }
 
   @override
   Future<void> close() async => closed = true;

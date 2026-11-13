@@ -9,6 +9,8 @@ import '../design/labels.dart';
 import '../design/tokens.dart';
 import '../home/account_form.dart';
 import '../security/session.dart';
+import '../legal/legal_screen.dart';
+import '../settings/data_screen.dart';
 
 /// Onboarding em três passos curtos: nome, moeda principal, primeira conta.
 /// O PIN já foi criado antes, porque é ele que liberta a chave da base cifrada.
@@ -144,6 +146,33 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               ),
               const SizedBox(height: FtSpace.lg),
               body,
+              if (_step == 0) ...[
+                const SizedBox(height: FtSpace.lg),
+                TextButton.icon(
+                  icon: const Icon(Icons.settings_backup_restore),
+                  label: const Text('Tenho uma cópia de segurança'),
+                  onPressed: () => restoreBackup(context, ref),
+                ),
+                const SizedBox(height: FtSpace.sm),
+                Text(
+                  'Ao continuar, aceita os Termos de utilização e a Política de privacidade. '
+                  'Os seus dados ficam só neste telemóvel, cifrados.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  children: [
+                    for (final doc in LegalDoc.values)
+                      TextButton(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(builder: (_) => LegalScreen(doc: doc)),
+                        ),
+                        child: Text(doc.title),
+                      ),
+                  ],
+                ),
+              ],
               if (_saveError != null) ...[
                 const SizedBox(height: FtSpace.md),
                 Text(_saveError!, style: TextStyle(color: theme.colorScheme.error)),

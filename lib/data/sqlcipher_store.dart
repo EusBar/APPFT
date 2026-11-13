@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:sqflite_sqlcipher/sqflite.dart';
 
 import 'local_store.dart';
+import 'snapshot.dart';
 
 /// Base de dados local cifrada com SQLCipher (AES-256).
 ///
@@ -119,13 +120,16 @@ class SqlCipherStoreFactory implements LocalStoreFactory {
     )''',
     'CREATE INDEX movements_account ON movements(account_id)',
     'CREATE INDEX movements_date ON movements(date)',
-    '''
-    CREATE TRIGGER movements_immutable_update BEFORE UPDATE ON movements
-    BEGIN SELECT RAISE(ABORT, 'Livro-razão imutável: corrija com um estorno'); END''',
-    '''
-    CREATE TRIGGER movements_immutable_delete BEFORE DELETE ON movements
-    BEGIN SELECT RAISE(ABORT, 'Livro-razão imutável: corrija com um estorno'); END''',
+    _immutableUpdate,
+    _immutableDelete,
   ];
+
+  static const _immutableUpdate = '''
+    CREATE TRIGGER movements_immutable_update BEFORE UPDATE ON movements
+    BEGIN SELECT RAISE(ABORT, 'Livro-razão imutável: corrija com um estorno'); END''';
+  static const _immutableDelete = '''
+    CREATE TRIGGER movements_immutable_delete BEFORE DELETE ON movements
+    BEGIN SELECT RAISE(ABORT, 'Livro-razão imutável: corrija com um estorno'); END''';
 
   /// Fase 3: compromissos. O estado muda (pendente, pago, cancelado), mas o
   /// pagamento é sempre uma saída no livro-razão imutável.
@@ -630,6 +634,118 @@ class _SqlCipherStore implements LocalStore {
         'movement_id': record.movementId,
         'created_at': record.createdAt.millisecondsSinceEpoch,
       });
+    });
+  }
+
+  /// Restauro de uma cópia: a única operação que substitui o livro-razão.
+  /// Os gatilhos de imutabilidade saem e voltam dentro da mesma transação.
+  @override
+  Future<void> replaceAll(Snapshot snap) {
+    return _db.transaction((txn) async {
+      await txn.execute('DROP TRIGGER IF EXISTS movements_immutable_update');
+      await txn.execute('DROP TRIGGER IF EXISTS movements_immutable_delete');
+      for (final table in [
+        'kixikila_records',
+        'kixikila_groups',
+        'goal_contributions',
+        'goals',
+        'budgets',
+        'commitments',
+        'movements',
+        'categories',
+        'accounts',
+        'profile',
+      ]) {
+        await txn.delete(table);
+      }
+      final p = snap.profile;
+      await txn.insert('profile', {
+        'id': 1,
+        'name': p.name,
+        'main_currency': p.mainCurrency.code,
+        'nickname': p.nickname,
+        'photo': p.photo,
+        'created_at': snap.createdAt.millisecondsSinceEpoch,
+      });
+      for (final a in snap.accounts) {
+        await txn.insert('accounts', _accountRow(a));
+      }
+      for (final (i, c) in snap.categories.indexed) {
+        await txn.insert('categories', {
+          'id': c.id,
+          'kind': c.kind.code,
+          'name': c.name,
+          'icon': c.icon,
+          'archived': c.archived ? 1 : 0,
+          'sort': i,
+        });
+      }
+      for (final m in snap.movements) {
+        await txn.insert('movements', _movementRow(m));
+      }
+      for (final c in snap.commitments) {
+        await txn.insert('commitments', _commitmentRow(c));
+      }
+      for (final b in snap.budgets) {
+        await txn.insert('budgets', {
+          'id': b.id,
+          'category_id': b.categoryId,
+          'amount_minor': b.amount.minor,
+          'currency': b.amount.currency.code,
+          'start_month': _date(b.startMonth),
+          'carry_over': b.carryOver ? 1 : 0,
+          'created_at': b.createdAt.millisecondsSinceEpoch,
+        });
+      }
+      for (final g in snap.goals) {
+        await txn.insert('goals', {
+          'id': g.id,
+          'name': g.name,
+          'target_minor': g.target.minor,
+          'currency': g.target.currency.code,
+          'deadline': g.deadline == null ? null : _date(g.deadline!),
+          'account_id': g.accountId,
+          'archived': g.archived ? 1 : 0,
+          'created_at': g.createdAt.millisecondsSinceEpoch,
+        });
+      }
+      for (final c in snap.contributions) {
+        await txn.insert('goal_contributions', {
+          'id': c.id,
+          'goal_id': c.goalId,
+          'amount_minor': c.amount.minor,
+          'currency': c.amount.currency.code,
+          'date': _date(c.date),
+          'created_at': c.createdAt.millisecondsSinceEpoch,
+        });
+      }
+      for (final k in snap.kixikilas) {
+        await txn.insert('kixikila_groups', {
+          'id': k.id,
+          'name': k.name,
+          'members': k.members.join('\n'),
+          'contribution_minor': k.contribution.minor,
+          'currency': k.contribution.currency.code,
+          'period': k.period.code,
+          'start_date': _date(k.startDate),
+          'my_turn': k.myTurn,
+          'account_id': k.accountId,
+          'archived': k.archived ? 1 : 0,
+          'created_at': k.createdAt.millisecondsSinceEpoch,
+        });
+      }
+      for (final r in snap.kixikilaRecords) {
+        await txn.insert('kixikila_records', {
+          'id': r.id,
+          'group_id': r.groupId,
+          'round': r.round,
+          'kind': r.kind.code,
+          'movement_id': r.movementId,
+          'created_at': r.createdAt.millisecondsSinceEpoch,
+        });
+      }
+      await txn.execute(SqlCipherStoreFactory._immutableUpdate);
+      await txn.execute(SqlCipherStoreFactory._immutableDelete);
     });
   }
 

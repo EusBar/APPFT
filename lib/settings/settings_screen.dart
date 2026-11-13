@@ -11,7 +11,9 @@ import '../privacy/consent.dart';
 import '../profile/profile_screen.dart';
 import '../security/pin_pad.dart';
 import '../security/session.dart';
+import '../legal/legal_screen.dart';
 import 'categories_screen.dart';
+import 'data_screen.dart';
 
 /// Definições de segurança.
 class SettingsScreen extends ConsumerWidget {
@@ -177,6 +179,28 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: Text(
               'A base de dados usa AES-256 (SQLCipher). A chave só é libertada '
               'com o PIN certo e nunca sai do dispositivo.',
+            ),
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.folder_shared_outlined),
+            title: const Text('Os seus dados'),
+            subtitle: const Text('Cópia de segurança cifrada, restauro e exportação'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const DataScreen())),
+          ),
+          ListTile(
+            leading: const Icon(Icons.privacy_tip_outlined),
+            title: const Text('Política de privacidade'),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const LegalScreen(doc: LegalDoc.privacy)),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.gavel_outlined),
+            title: const Text('Termos de utilização'),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const LegalScreen(doc: LegalDoc.terms)),
             ),
           ),
           const Divider(),

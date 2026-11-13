@@ -449,6 +449,15 @@ void main() {
     expect(find.text('Olá, Eusébio'), findsOneWidget);
   });
 
+  testWidgets('onboarding mostra a política de privacidade', (tester) async {
+    await pumpApp(tester);
+    await typePin(tester, '482917');
+    await typePin(tester, '482917');
+    await tapText(tester, 'Política de privacidade');
+    expect(find.text('Política de Privacidade do FINTRACK'), findsOneWidget);
+    expect(find.textContaining('apenas no seu telemóvel'), findsWidgets);
+  });
+
   testWidgets('saldo inválido mostra erro e não grava', (tester) async {
     await pumpApp(tester);
     await typePin(tester, '482917');

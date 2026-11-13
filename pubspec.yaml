@@ -1,7 +1,7 @@
 name: fintrack
 description: "FINTRACK — Your Money. Under Control."
 publish_to: none
-version: 0.9.0+9
+version: 0.10.0+10
 
 environment:
   sdk: ^3.8.0
@@ -35,6 +35,7 @@ flutter:
   assets:
     - assets/backgrounds/
     - assets/backgrounds/countries/
+    - assets/legal/
 
 # Ícone do app (gerado no CI com `dart run flutter_launcher_icons`).
 flutter_launcher_icons:

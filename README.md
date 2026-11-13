@@ -6,7 +6,7 @@ App de gestão e inteligência financeira pessoal (Android e iOS, Flutter), cons
 
 ## Estado
 
-**Fase 1 — Fundação** ✅ · **Fase 2 — Gestão financeira** ✅ · **Fase 3 — Motor financeiro** ✅ · **Fase 4 — Relatórios e importação** ✅ · **Fase 5 — Planeamento (v0.9.0)**
+**Fase 1 — Fundação** ✅ · **Fase 2 — Gestão financeira** ✅ · **Fase 3 — Motor financeiro** ✅ · **Fase 4 — Relatórios e importação** ✅ · **Fase 5 — Planeamento** ✅ · **Etapa 3 — Publicação, sem pagamentos (v0.10.0)**
 
 - `packages/fintrack_core`: núcleo em Dart puro, sem UI
   - `Money` (inteiros na unidade mínima), `Currency` (AOA, USD, EUR, BRL, GBP, ZAR)
@@ -30,6 +30,8 @@ App de gestão e inteligência financeira pessoal (Android e iOS, Flutter), cons
 - Lembretes locais (compromissos e Kixikila, sem valores no ecrã bloqueado) e alertas de orçamento
 - Privacidade: consentimento explicado antes de fotografias, ficheiros e notificações; revogável nas Definições
 - Categorias: criar, renomear, mudar o ícone e arquivar
+- Os seus dados: cópia de segurança cifrada (Argon2id + AES-256-GCM) com restauro, exportação completa em JSON
+- Política de privacidade e termos (`assets/legal/`, no app e públicos); ficha da Play Store em `docs/PLAY_STORE.md`
 - `tool/configure_android.py`: compileSdk 37, desugaring e recetores de notificações
 - `lib/planning/`: compromissos — criar, editar, pagar (gera a saída ligada), cancelar
 - `lib/home/`: Início (saldo disponível com horizonte, dicas rotativas, fluxo do mês, próximos compromissos, contas, recentes), Movimentos, Planear, Contas
@@ -45,7 +47,7 @@ App de gestão e inteligência financeira pessoal (Android e iOS, Flutter), cons
 - Sem os segredos `FINTRACK_KEYSTORE_*` no GitHub, o APK é assinado com uma chave de teste diferente em cada compilação (para atualizar é preciso desinstalar).
 - Os ficheiros exportados (PDF/CSV) não são cifrados.
 
-**A seguir (etapa 3 de 7):** publicação — política de privacidade, eliminação de conta, teste fechado na Play Store.
+**A seguir:** etapa 4 (nuvem: conta, sincronização e Cofre Privado). Os passos pagos da publicação (conta Google Play, teste fechado) ficam para o fim.
 
 ## Créditos
 

@@ -4,6 +4,7 @@ import 'package:fintrack_core/fintrack_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/local_store.dart';
+import '../data/snapshot.dart';
 import '../data/sqlcipher_store.dart';
 import 'biometric_key_store.dart';
 import 'pin_vault.dart';
@@ -209,6 +210,14 @@ class SessionController extends Notifier<SessionState> {
     if (store == null) throw StateError('App bloqueado');
     await store.updateProfile(profile);
     state = state.copyWith(profile: profile);
+  }
+
+  /// Substitui todos os dados pelos de uma cópia (já decifrada e validada).
+  Future<void> restore(Snapshot snapshot) async {
+    final store = _store;
+    if (store == null) throw StateError('App bloqueado');
+    await store.replaceAll(snapshot);
+    state = state.copyWith(status: SessionStatus.unlocked, profile: snapshot.profile);
   }
 
   void lock() {
