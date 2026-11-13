@@ -132,7 +132,8 @@ class CloudController extends Notifier<CloudState> {
     final store = _store;
     if (store == null) {
       // Sem base aberta (primeira abertura ou depois de apagar tudo): não há
-      // sessão neste telemóvel.
+      // sessão neste telemóvel. (Depois do build: pode vir de um initState.)
+      await Future<void>.delayed(Duration.zero);
       state = const CloudState(loaded: true);
       return;
     }
