@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show SocketException, HandshakeException;
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
@@ -86,9 +87,16 @@ class HttpCloudApi implements CloudApi {
       return await request().timeout(_timeout);
     } on TimeoutException {
       throw const CloudException('A ligação demorou demasiado. Tente de novo.', code: 'timeout');
-    } catch (e) {
-      if (e is CloudException) rethrow;
+    } on CloudException {
+      rethrow;
+    } on SocketException {
       throw const CloudException('Sem ligação à Internet.', code: 'offline');
+    } on http.ClientException catch (e) {
+      throw CloudException('Sem ligação ao servidor (${e.message}).', code: 'offline');
+    } on HandshakeException {
+      throw const CloudException('Ligação segura recusada. Verifique a data e hora do telemóvel.', code: 'tls');
+    } catch (e) {
+      throw CloudException('Erro inesperado na ligação (${e.runtimeType}).', code: 'unknown');
     }
   }
 

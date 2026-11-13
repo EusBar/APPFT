@@ -7,6 +7,10 @@ cd "$(dirname "$0")/.."
 # --- Android -----------------------------------------------------------------
 manifest=android/app/src/main/AndroidManifest.xml
 sed -i 's/android:label="fintrack"/android:label="FINTRACK"/' "$manifest"
+# Acesso à Internet (conta e sincronização). O modelo do Flutter só o declara
+# nas versões de depuração, não na versão final.
+grep -q 'android.permission.INTERNET' "$manifest" || sed -i \
+  's#<application#<uses-permission android:name="android.permission.INTERNET"/>\n    <application#' "$manifest"
 grep -q 'USE_BIOMETRIC' "$manifest" || sed -i \
   's#<application#<uses-permission android:name="android.permission.USE_BIOMETRIC"/>\n    <application#' "$manifest"
 # Sem cópias de segurança automáticas da base local (os dados ficam no aparelho).
