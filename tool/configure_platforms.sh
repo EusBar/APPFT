@@ -29,10 +29,6 @@ sed -i -E 's/minSdk = flutter\.minSdkVersion/minSdk = maxOf(flutter.minSdkVersio
 python3 tool/configure_android.py
 
 # --- iOS ---------------------------------------------------------------------
-plist=ios/Runner/Info.plist
-if ! grep -q NSFaceIDUsageDescription "$plist"; then
-  sed -i '0,/<dict>/s#<dict>#<dict>\n\t<key>NSFaceIDUsageDescription</key>\n\t<string>Desbloquear o FINTRACK com o rosto.</string>#' "$plist"
-fi
-perl -0pi -e 's#(<key>CFBundleDisplayName</key>\s*<string>)[^<]*(</string>)#${1}FINTRACK${2}#' "$plist"
+python3 tool/configure_ios.py
 
 echo "Plataformas configuradas."

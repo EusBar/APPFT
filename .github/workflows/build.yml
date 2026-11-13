@@ -76,3 +76,31 @@ jobs:
           name: fintrack-apk
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
+
+  ios:
+    # Confirma que a versão iPhone compila. A instalação no iPhone (TestFlight)
+    # precisa da conta de programador Apple e da assinatura.
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Gerar pasta iOS
+        run: flutter create --platforms=ios --org ao.fintrack --project-name fintrack .
+
+      - name: Configurar iOS
+        run: python3 tool/configure_ios.py
+
+      - name: Dependências
+        run: flutter pub get
+
+      - name: Ícone do app
+        run: dart run flutter_launcher_icons
+
+      - name: Compilar iOS (sem assinatura)
+        run: flutter build ios --release --no-codesign
