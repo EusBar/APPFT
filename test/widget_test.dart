@@ -435,7 +435,11 @@ void main() {
     await tester.enterText(find.byKey(const Key('cloud-email')), 'eu@exemplo.ao');
     await tester.enterText(find.byKey(const Key('cloud-password')), 'Segura12345');
     await tester.enterText(find.byKey(const Key('cloud-confirm')), 'Segura12345');
-    await tapText(tester, 'Criar conta');
+    final submit = find.widgetWithText(FilledButton, 'Criar conta');
+    await tester.ensureVisible(submit);
+    await tester.pumpAndSettle();
+    await tester.tap(submit);
+    await tester.pumpAndSettle();
 
     // O código aparece uma vez; é preciso confirmar o último grupo.
     final shown = tester.widget<SelectableText>(find.byKey(const Key('recovery-code'))).data!;
