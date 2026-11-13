@@ -130,7 +130,12 @@ class CloudController extends Notifier<CloudState> {
   /// Lê a sessão guardada (depois de desbloquear).
   Future<void> load() async {
     final store = _store;
-    if (store == null) return;
+    if (store == null) {
+      // Sem base aberta (primeira abertura ou depois de apagar tudo): não há
+      // sessão neste telemóvel.
+      state = const CloudState(loaded: true);
+      return;
+    }
     final email = await store.getSetting(_kEmail);
     final last = await store.getSetting(_kLastSync);
     state = CloudState(
