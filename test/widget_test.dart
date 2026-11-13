@@ -661,10 +661,14 @@ void main() {
     await tester.tap(find.text('IA'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Quanto posso gastar?'));
+    // A resposta chega depois de um instante de "a pensar".
+    await tester.pump(const Duration(milliseconds: 400));
     await tester.pumpAndSettle();
     expect(find.textContaining('Pode gastar 100'), findsOneWidget);
+    expect(find.text('Disponível para gastar'), findsOneWidget, reason: 'valor em destaque');
     await tester.enterText(find.byKey(const Key('ask-question')), 'qual a capital de França');
     await tester.tap(find.byKey(const Key('ask-send')));
+    await tester.pump(const Duration(milliseconds: 400));
     await tester.pumpAndSettle();
     expect(find.textContaining('Ainda não sei responder'), findsOneWidget);
   });
