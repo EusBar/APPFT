@@ -80,7 +80,7 @@ jobs:
   ios:
     # Confirma que a versão iPhone compila. A instalação no iPhone (TestFlight)
     # precisa da conta de programador Apple e da assinatura.
-    runs-on: macos-latest
+    runs-on: macos-15-intel
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
