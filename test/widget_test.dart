@@ -470,6 +470,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('cloud-confirm')), 'Segura12345');
     final submit = find.widgetWithText(FilledButton, 'Criar conta');
     await tester.ensureVisible(submit);
+    await tester.pumpAndSettle();
     await tester.tap(submit);
     await tester.pumpAndSettle();
 
@@ -505,6 +506,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('cloud-password')), 'Segura12345');
     final enter = find.widgetWithText(FilledButton, 'Entrar');
     await tester.ensureVisible(enter);
+    await tester.pumpAndSettle();
     await tester.tap(enter);
     await tester.pumpAndSettle();
     expect(find.text('Código enviado por e-mail'), findsOneWidget, reason: 'dispositivo novo');
