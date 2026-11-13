@@ -90,6 +90,7 @@ class _AiViewState extends ConsumerState<AiView> {
     final currency = ref.watch(sessionProvider.select((s) => s.profile?.mainCurrency)) ?? Currency.aoa;
 
     return ListView(
+      key: const Key('ai-list'),
       padding: const EdgeInsets.fromLTRB(FtSpace.lg, FtSpace.sm, FtSpace.lg, 96),
       children: [
         Row(

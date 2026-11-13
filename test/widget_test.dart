@@ -638,9 +638,10 @@ void main() {
     await tester.tap(find.text('IA'));
     await tester.pumpAndSettle();
     expect(find.text('Pergunte ao FINTRACK'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Nada a assinalar.'), 200, scrollable: find.byType(Scrollable).last);
+    await tester.dragUntilVisible(find.text('Nada a assinalar.'), find.byKey(const Key('ai-list')), const Offset(0, -250));
     expect(find.text('Nada a assinalar.'), findsOneWidget);
-    await tester.scrollUntilVisible(find.byKey(const Key('smart-entry')), -200, scrollable: find.byType(Scrollable).last);
+    await tester.dragUntilVisible(find.byKey(const Key('smart-entry')), find.byKey(const Key('ai-list')), const Offset(0, 250));
+    await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const Key('smart-entry')), 'Gastei 12 500 Kz no Kero hoje');
     await tapText(tester, 'Preparar movimento');
