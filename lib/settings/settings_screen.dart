@@ -203,6 +203,11 @@ class SettingsScreen extends ConsumerWidget {
               MaterialPageRoute<void>(builder: (_) => const LegalScreen(doc: LegalDoc.terms)),
             ),
           ),
+          const ListTile(
+            leading: Icon(Icons.mail_outline),
+            title: Text('Contacto'),
+            subtitle: SelectableText('appfintracksolution@gmail.com'),
+          ),
           const Divider(),
           ListTile(
             leading: Icon(Icons.delete_forever_outlined, color: theme.colorScheme.error),

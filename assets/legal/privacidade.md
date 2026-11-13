@@ -56,7 +56,7 @@ O FINTRACK destina-se a maiores de 18 anos.
 
 ## Contacto
 
-Para questões sobre privacidade: **[e-mail de contacto a indicar antes da publicação]**.
+Para questões sobre privacidade: **appfintracksolution@gmail.com**.
 
 ## Alterações
 

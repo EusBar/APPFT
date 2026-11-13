@@ -44,6 +44,8 @@ RELATÓRIOS E DADOS
 O FINTRACK não é um banco, não movimenta dinheiro e não presta aconselhamento
 financeiro profissional.
 
+**E-mail de contacto:** appfintracksolution@gmail.com
+
 **Categoria:** Finanças · **Etiquetas:** finanças pessoais, orçamento, poupança
 **Classificação de conteúdo:** Todos (sem conteúdo sensível; questionário IARC)
 **Público-alvo:** 18+
@@ -86,7 +88,7 @@ atualizado antes** de publicar essa versão.
 - [x] Eliminação e exportação de dados dentro do app
 - [x] Assinatura fixa do APK (segredos no GitHub)
 - [x] Ícone 512 e imagem de destaque
-- [ ] E-mail de contacto (preencher em `assets/legal/*.md` e na ficha)
+- [x] E-mail de contacto: appfintracksolution@gmail.com (política, termos e ficha)
 - [ ] Capturas de ecrã com dados fictícios
 - [ ] 💳 Conta de programador Google Play (25 USD) e verificação de identidade
 - [ ] 💳 Gerar **AAB** (`flutter build appbundle`) e ativar a Assinatura de apps da Play

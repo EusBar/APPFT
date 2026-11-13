@@ -38,4 +38,4 @@ Estes termos regem-se pela lei angolana.
 
 ## Contacto
 
-**[e-mail de contacto a indicar antes da publicação]**
+**appfintracksolution@gmail.com**
