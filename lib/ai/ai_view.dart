@@ -10,6 +10,7 @@ import '../finance/finance_data.dart';
 import '../finance/movement_form_screen.dart';
 import '../finance/movement_tile.dart';
 import '../security/session.dart';
+import 'copilot_card.dart';
 
 /// Separador FINTRACK AI. Nesta versão tudo corre no telemóvel, sem
 /// Internet: Smart Entry por texto ou SMS colado e o AI Guard.
@@ -96,13 +97,15 @@ class _AiViewState extends ConsumerState<AiView> {
             const SizedBox(width: FtSpace.sm),
             Expanded(
               child: Text(
-                'IA no seu telemóvel · sem Internet · nada é gravado sem a sua confirmação',
+                'Nada é gravado sem a sua confirmação · Smart Entry e AI Guard funcionam sem Internet',
                 style: muted?.copyWith(color: colors.aiAccent),
               ),
             ),
           ],
         ),
         const SizedBox(height: FtSpace.md),
+        CopilotCard(data: widget.data),
+        const SizedBox(height: FtSpace.lg),
         _Card(
           accent: colors.aiAccent,
           children: [
@@ -174,9 +177,7 @@ class _AiViewState extends ConsumerState<AiView> {
           ),
         const SizedBox(height: FtSpace.xl),
         Text(
-          'Perguntas em linguagem natural (Copilot) chegam numa próxima versão, sempre com a sua '
-          'autorização antes de usar IA na nuvem. O FINTRACK AI é apoio à decisão, não '
-          'aconselhamento financeiro profissional.',
+          'O FINTRACK AI é apoio à decisão, não aconselhamento financeiro profissional.',
           style: muted,
         ),
       ],

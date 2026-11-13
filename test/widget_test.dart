@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:fintrack/data/local_store.dart';
+import 'package:fintrack/ai/copilot_api.dart';
 import 'package:fintrack/cloud/cloud_api.dart';
 import 'package:fintrack/cloud/cloud_controller.dart';
 import 'package:fintrack/main.dart';
@@ -28,9 +29,11 @@ void main() {
   late MemoryBiometricKeyStore bio;
   late MemoryReminders reminders;
   late MemoryCloudApi cloud;
+  late MemoryCopilotApi copilot;
 
   setUp(() {
     cloud = MemoryCloudApi();
+    copilot = MemoryCopilotApi();
     reminders = MemoryReminders();
     secrets = MemorySecretStore();
     data = MemoryLocalStore();
@@ -56,6 +59,7 @@ void main() {
           remindersProvider.overrideWithValue(reminders),
           cloudApiProvider.overrideWithValue(cloud),
           cloudDeriverProvider.overrideWithValue(fakeDerive),
+          copilotApiProvider.overrideWithValue(copilot),
         ],
         child: const FintrackApp(),
       ),
@@ -637,7 +641,10 @@ void main() {
     await setUpUser(tester);
     await tester.tap(find.text('IA'));
     await tester.pumpAndSettle();
+    expect(find.text('Entrar na conta para usar'), findsOneWidget, reason: 'Copilot só com conta');
+    await tester.scrollUntilVisible(find.text('Nada a assinalar.'), 200, scrollable: find.byType(Scrollable).last);
     expect(find.text('Nada a assinalar.'), findsOneWidget);
+    await tester.scrollUntilVisible(find.byKey(const Key('smart-entry')), -200, scrollable: find.byType(Scrollable).last);
 
     await tester.enterText(find.byKey(const Key('smart-entry')), 'Gastei 12 500 Kz no Kero hoje');
     await tapText(tester, 'Preparar movimento');
@@ -650,6 +657,48 @@ void main() {
     expect(data.ledger.single.amount, const Money(1250000, Currency.aoa));
     expect(data.ledger.single.categoryId, 'exp.alimentacao');
     expect(data.ledger.single.origin, MovementOrigin.smartEntry);
+  });
+
+  testWidgets('Copilot: autorização, resumo sem descrições e verificação dos números', (tester) async {
+    await setUpUser(tester);
+    // Conta na nuvem.
+    await tester.tap(find.byTooltip('Definições'));
+    await tester.pumpAndSettle();
+    await tapText(tester, 'Conta e sincronização');
+    await tester.enterText(find.byKey(const Key('cloud-email')), 'eu@exemplo.ao');
+    await tester.enterText(find.byKey(const Key('cloud-password')), 'Segura12345');
+    await tester.enterText(find.byKey(const Key('cloud-confirm')), 'Segura12345');
+    final submit = find.widgetWithText(FilledButton, 'Criar conta');
+    await tester.ensureVisible(submit);
+    await tester.pumpAndSettle();
+    await tester.tap(submit);
+    await tester.pumpAndSettle();
+    final shown = tester.widget<SelectableText>(find.byKey(const Key('recovery-code'))).data!;
+    await tester.enterText(find.byKey(const Key('recovery-check')), shown.replaceAll(' – ', '-').split('-').last);
+    await tapText(tester, 'Guardei o código');
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('IA'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('copilot-enable')));
+    await tester.pumpAndSettle();
+    expect(find.text('Ativar o Copilot?'), findsOneWidget);
+    await tester.tap(find.text('Autorizo'));
+    await tester.pumpAndSettle();
+    expect(data.settings['ai.copilotConsent'], '1');
+
+    copilot.reply = 'Tem 100 000,00 Kz e gastou 7 777 Kz.';
+    await tester.tap(find.text('Quanto gastei este mês?'));
+    await tester.pumpAndSettle();
+    expect(copilot.lastQuestion, 'Quanto gastei este mês?');
+    final ctx = copilot.lastContext!;
+    expect((ctx['contas']! as List).single, containsPair('saldo', contains('100')));
+    expect(ctx.toString().contains('eu@exemplo.ao'), isFalse, reason: 'sem e-mail no resumo');
+    expect(find.textContaining('Tem 100 000,00 Kz'), findsOneWidget);
+    expect(find.textContaining('7 777 não aparece'), findsOneWidget, reason: 'regra de ouro');
   });
 
   testWidgets('biometria: ativar com PIN e desbloquear sem PIN', (tester) async {
