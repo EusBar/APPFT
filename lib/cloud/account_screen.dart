@@ -62,8 +62,10 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
           : await cloud.signIn(_email.text, _password.text);
       while (step is NeedsEmailCode) {
         if (!mounted) return;
+        setState(() => _busy = false); // à espera do utilizador, não do app
         final code = await _askEmailCode(step.email);
         if (code == null) return;
+        if (mounted) setState(() => _busy = true);
         try {
           step = await cloud.confirmEmailCode(code);
         } on NeedsRecoveryCode {
@@ -98,8 +100,10 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
 
   Future<CloudStep?> _recover(CloudController cloud) async {
     while (mounted) {
+      setState(() => _busy = false);
       final rc = await _askRecoveryCode();
       if (rc == null) return null;
+      if (mounted) setState(() => _busy = true);
       try {
         return await cloud.continueWithRecovery(rc);
       } on CloudException catch (e) {
