@@ -37,9 +37,11 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
   String? _error;
   bool _saving = false;
   bool _syncing = false;
+  bool _created = false;
 
   /// Segundo método de desbloqueio, logo a seguir ao PIN.
   Future<void> _offerBiometrics(String pin) async {
+    if (mounted) setState(() => _created = true);
     if (!await ref.read(biometricKeyStoreProvider).isAvailable() || !mounted) return;
     final yes = await showDialog<bool>(
       context: context,
@@ -86,13 +88,16 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
     setState(() => _saving = true);
     try {
       await session.createPin(pin, beforeReady: () async {
+        if (mounted) setState(() => _saving = false);
         await _offerBiometrics(pin);
         // Entrou na conta antes do PIN: os dados vêm agora da nuvem.
-        if (mounted) setState(() => _syncing = true);
-        await cloud.adoptParked();
+        if (cloud.hasParked) {
+          if (mounted) setState(() => _saving = _syncing = true);
+          await cloud.adoptParked();
+        }
       });
     } catch (_) {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) setState(() => _saving = _created = false);
       if (!mounted) return;
       setState(() {
         _first = null;
@@ -154,6 +159,15 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
                     const CircularProgressIndicator(),
                     const SizedBox(height: FtSpace.md),
                     Text(_syncing ? 'A trazer os seus dados da nuvem…' : 'A proteger o FINTRACK…'),
+                  ]),
+                )
+              else if (_created)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: FtSpace.xl),
+                  child: Column(children: [
+                    Icon(Icons.check_circle, size: 48, color: theme.colorScheme.primary),
+                    const SizedBox(height: FtSpace.md),
+                    const Text('PIN criado'),
                   ]),
                 )
               else

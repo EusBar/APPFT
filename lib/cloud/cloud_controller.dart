@@ -251,6 +251,8 @@ class CloudController extends Notifier<CloudState> {
   /// memória até a base cifrada ser criada.
   (CloudSession, Uint8List, String)? _parked;
 
+  bool get hasParked => _parked != null;
+
   /// Depois de criar o PIN: guarda a sessão estacionada e traz os dados.
   Future<void> adoptParked() async {
     final parked = _parked;
