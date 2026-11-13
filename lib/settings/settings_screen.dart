@@ -2,6 +2,8 @@ import 'package:fintrack_core/fintrack_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../cloud/account_screen.dart';
+import '../cloud/cloud_controller.dart';
 import '../design/country_photos.dart';
 import '../design/labels.dart';
 import '../design/tokens.dart';
@@ -71,6 +73,13 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(builder: (_) => const ProfileScreen()),
             ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.cloud_sync_outlined),
+            title: const Text('Conta e sincronização'),
+            subtitle: Text(ref.watch(cloudProvider.select((c) => c.email)) ?? 'Cópia na nuvem, cifrada ponta-a-ponta'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const AccountScreen())),
           ),
           ListTile(
             leading: const Icon(Icons.category_outlined),

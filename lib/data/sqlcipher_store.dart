@@ -15,7 +15,7 @@ class SqlCipherStoreFactory implements LocalStoreFactory {
   const SqlCipherStoreFactory();
 
   static const _fileName = 'fintrack.db';
-  static const _version = 6;
+  static const _version = 7;
 
   Future<String> _path() async => p.join(await getDatabasesPath(), _fileName);
 
@@ -31,7 +31,7 @@ class SqlCipherStoreFactory implements LocalStoreFactory {
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
       onCreate: (db, version) async {
         final batch = db.batch();
-        for (final statement in [..._schemaV1, ..._schemaV2, ..._schemaV3, ..._schemaV4, ..._schemaV5, ..._schemaV6]) {
+        for (final statement in [..._schemaV1, ..._schemaV2, ..._schemaV3, ..._schemaV4, ..._schemaV5, ..._schemaV6, ..._schemaV7]) {
           batch.execute(statement);
         }
         _seedCategories(batch);
@@ -62,6 +62,11 @@ class SqlCipherStoreFactory implements LocalStoreFactory {
         }
         if (from < 6) {
           for (final statement in _schemaV6) {
+            batch.execute(statement);
+          }
+        }
+        if (from < 7) {
+          for (final statement in _schemaV7) {
             batch.execute(statement);
           }
         }
@@ -196,6 +201,12 @@ class SqlCipherStoreFactory implements LocalStoreFactory {
       date TEXT NOT NULL,
       created_at INTEGER NOT NULL
     )''',
+  ];
+
+  /// Etapa 4: definições internas (sessão da nuvem) e estado de sincronização.
+  static const _schemaV7 = [
+    'CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)',
+    'CREATE TABLE sync_state (key TEXT PRIMARY KEY, hash TEXT NOT NULL)',
   ];
 
   /// Etapa 2B: Kixikila.
@@ -634,6 +645,37 @@ class _SqlCipherStore implements LocalStore {
         'movement_id': record.movementId,
         'created_at': record.createdAt.millisecondsSinceEpoch,
       });
+    });
+  }
+
+  @override
+  Future<String?> getSetting(String key) async {
+    final rows = await _db.query('settings', where: 'key = ?', whereArgs: [key]);
+    return rows.isEmpty ? null : rows.first['value'] as String?;
+  }
+
+  @override
+  Future<void> setSetting(String key, String? value) async {
+    if (value == null) {
+      await _db.delete('settings', where: 'key = ?', whereArgs: [key]);
+    } else {
+      await _db.insert('settings', {'key': key, 'value': value}, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+  }
+
+  @override
+  Future<Map<String, String>> syncState() async {
+    final rows = await _db.query('sync_state');
+    return {for (final r in rows) r['key']! as String: r['hash']! as String};
+  }
+
+  @override
+  Future<void> saveSyncState(Map<String, String> state) {
+    return _db.transaction((txn) async {
+      await txn.delete('sync_state');
+      final batch = txn.batch();
+      state.forEach((k, v) => batch.insert('sync_state', {'key': k, 'hash': v}));
+      await batch.commit(noResult: true);
     });
   }
 

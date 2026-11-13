@@ -2,6 +2,7 @@ import 'package:fintrack_core/fintrack_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../cloud/cloud_controller.dart';
 import '../design/backdrop.dart';
 import '../design/country_photos.dart';
 import '../design/labels.dart';
@@ -36,6 +37,17 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _tab = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Depois de desbloquear: lê a sessão da nuvem e sincroniza.
+    Future.microtask(() async {
+      final cloud = ref.read(cloudProvider.notifier);
+      await cloud.load();
+      if (mounted && ref.read(cloudProvider).signedIn) await cloud.syncNow();
+    });
+  }
   PlanSection _plan = PlanSection.commitments;
 
   Widget? _fab(FinanceData? data, Currency? mainCurrency) {
@@ -59,6 +71,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  /// Só alterações depois da primeira leitura contam como "mudou algo".
+  static bool previousHadData(AsyncValue<FinanceData>? previous) => previous?.valueOrNull != null;
+
   /// Reagenda os lembretes sempre que os dados mudam, se autorizados.
   Future<void> _syncReminders(FinanceData data) async {
     final allowed = await ref.read(secretStoreProvider).read(Consent.notifications.key) == '1';
@@ -67,9 +82,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(financeProvider, (_, next) {
+    ref.listen(financeProvider, (prev, next) {
       final data = next.valueOrNull;
-      if (data != null) _syncReminders(data);
+      if (data != null) {
+        _syncReminders(data);
+        if (previousHadData(prev)) ref.read(cloudProvider.notifier).scheduleSync();
+      }
     });
     final session = ref.watch(sessionProvider);
     final controller = ref.read(sessionProvider.notifier);

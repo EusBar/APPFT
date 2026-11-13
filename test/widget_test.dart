@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 
 import 'package:fintrack/data/local_store.dart';
+import 'package:fintrack/cloud/cloud_api.dart';
+import 'package:fintrack/cloud/cloud_controller.dart';
 import 'package:fintrack/main.dart';
 import 'package:fintrack/notifications/reminders.dart';
 import 'package:fintrack/security/biometric_key_store.dart';
@@ -24,8 +26,10 @@ void main() {
   late MemoryLocalStore data;
   late MemoryBiometricKeyStore bio;
   late MemoryReminders reminders;
+  late MemoryCloudApi cloud;
 
   setUp(() {
+    cloud = MemoryCloudApi();
     reminders = MemoryReminders();
     secrets = MemorySecretStore();
     data = MemoryLocalStore();
@@ -41,6 +45,8 @@ void main() {
           localStoreFactoryProvider.overrideWithValue(data),
           biometricKeyStoreProvider.overrideWithValue(bio),
           remindersProvider.overrideWithValue(reminders),
+          cloudApiProvider.overrideWithValue(cloud),
+          cloudDeriverProvider.overrideWithValue(fakeDerive),
         ],
         child: const FintrackApp(),
       ),
@@ -419,6 +425,34 @@ void main() {
     expect(secrets.values['ft.consent.notifications'], '1');
     expect(reminders.scheduled.map((r) => r.body), ['Renda vence amanhã.', 'Renda vence hoje.']);
     expect(reminders.scheduled.any((r) => r.body.contains('45')), isFalse);
+  });
+
+  testWidgets('conta na nuvem: criar, guardar o código e sincronizar cifrado', (tester) async {
+    await setUpUser(tester);
+    await tester.tap(find.byTooltip('Definições'));
+    await tester.pumpAndSettle();
+    await tapText(tester, 'Conta e sincronização');
+    await tester.enterText(find.byKey(const Key('cloud-email')), 'eu@exemplo.ao');
+    await tester.enterText(find.byKey(const Key('cloud-password')), 'Segura12345');
+    await tester.enterText(find.byKey(const Key('cloud-confirm')), 'Segura12345');
+    await tapText(tester, 'Criar conta');
+
+    // O código aparece uma vez; é preciso confirmar o último grupo.
+    final shown = tester.widget<SelectableText>(find.byKey(const Key('recovery-code'))).data!;
+    final code = shown.replaceAll(' – ', '-');
+    await tester.enterText(find.byKey(const Key('recovery-check')), 'XXXX');
+    await tapText(tester, 'Guardei o código');
+    expect(find.text('Não corresponde. Verifique o código.'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('recovery-check')), code.split('-').last);
+    await tapText(tester, 'Guardei o código');
+
+    expect(find.text('eu@exemplo.ao'), findsOneWidget);
+    final user = cloud.users['eu@exemplo.ao']!.$1;
+    expect(cloud.vaults[user], isNotNull);
+    final records = cloud.records[user]!;
+    expect(records.keys, contains('account/${data.stored.single.id}'));
+    expect(records.values.any((r) => r.payload.contains('Eusébio')), isFalse, reason: 'tudo cifrado');
+    expect(data.settings['cloud.email'], 'eu@exemplo.ao');
   });
 
   testWidgets('biometria: ativar com PIN e desbloquear sem PIN', (tester) async {

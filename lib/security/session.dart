@@ -212,6 +212,16 @@ class SessionController extends Notifier<SessionState> {
     state = state.copyWith(profile: profile);
   }
 
+  /// Relê o perfil depois de a sincronização mudar os dados.
+  Future<void> reloadProfile() async {
+    final store = _store;
+    if (store == null) return;
+    final profile = await store.loadProfile();
+    if (profile != null) {
+      state = state.copyWith(status: SessionStatus.unlocked, profile: profile);
+    }
+  }
+
   /// Substitui todos os dados pelos de uma cópia (já decifrada e validada).
   Future<void> restore(Snapshot snapshot) async {
     final store = _store;

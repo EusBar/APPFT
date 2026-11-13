@@ -9,6 +9,7 @@ import '../design/labels.dart';
 import '../design/tokens.dart';
 import '../home/account_form.dart';
 import '../security/session.dart';
+import '../cloud/account_screen.dart';
 import '../legal/legal_screen.dart';
 import '../settings/data_screen.dart';
 
@@ -148,6 +149,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               body,
               if (_step == 0) ...[
                 const SizedBox(height: FtSpace.lg),
+                TextButton.icon(
+                  icon: const Icon(Icons.cloud_download_outlined),
+                  label: const Text('Já tenho conta FINTRACK'),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(builder: (_) => const AccountScreen()),
+                  ),
+                ),
                 TextButton.icon(
                   icon: const Icon(Icons.settings_backup_restore),
                   label: const Text('Tenho uma cópia de segurança'),

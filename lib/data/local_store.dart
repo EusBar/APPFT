@@ -90,6 +90,14 @@ abstract interface class LocalStore {
   /// Grava o movimento da ronda e a ligação, numa única transação.
   Future<void> recordKixikila(Movement movement, KixikilaRecord record);
 
+  /// Definições internas guardadas na base cifrada (ex.: sessão da nuvem).
+  Future<String?> getSetting(String key);
+  Future<void> setSetting(String key, String? value);
+
+  /// Último estado sincronizado de cada registo ("tipo/id" -> resumo).
+  Future<Map<String, String>> syncState();
+  Future<void> saveSyncState(Map<String, String> state);
+
   /// Substitui todos os dados pelos da cópia, numa única transação: ou
   /// fica tudo restaurado, ou nada muda.
   Future<void> replaceAll(Snapshot snapshot);
@@ -118,6 +126,8 @@ class MemoryLocalStore implements LocalStore, LocalStoreFactory {
   final Map<String, Category> customCategories = {};
   final Map<String, KixikilaGroup> kixikilaById = {};
   final List<KixikilaRecord> kixikilaLog = [];
+  final Map<String, String> settings = {};
+  Map<String, String> sync = {};
   Uint8List? openedWith;
   bool closed = false;
 
@@ -140,6 +150,8 @@ class MemoryLocalStore implements LocalStore, LocalStoreFactory {
     customCategories.clear();
     kixikilaById.clear();
     kixikilaLog.clear();
+    settings.clear();
+    sync = {};
   }
 
   @override
@@ -271,6 +283,24 @@ class MemoryLocalStore implements LocalStore, LocalStoreFactory {
 
   @override
   Future<void> addGoalContribution(GoalContribution contribution) async => contributions.add(contribution);
+
+  @override
+  Future<String?> getSetting(String key) async => settings[key];
+
+  @override
+  Future<void> setSetting(String key, String? value) async {
+    if (value == null) {
+      settings.remove(key);
+    } else {
+      settings[key] = value;
+    }
+  }
+
+  @override
+  Future<Map<String, String>> syncState() async => Map.of(sync);
+
+  @override
+  Future<void> saveSyncState(Map<String, String> state) async => sync = Map.of(state);
 
   @override
   Future<void> replaceAll(Snapshot s) async {

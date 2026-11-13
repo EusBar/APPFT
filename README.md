@@ -6,7 +6,7 @@ App de gestão e inteligência financeira pessoal (Android e iOS, Flutter), cons
 
 ## Estado
 
-**Fase 1 — Fundação** ✅ · **Fase 2 — Gestão financeira** ✅ · **Fase 3 — Motor financeiro** ✅ · **Fase 4 — Relatórios e importação** ✅ · **Fase 5 — Planeamento** ✅ · **Etapa 3 — Publicação, sem pagamentos (v0.10.0)**
+**Fase 1 — Fundação** ✅ · **Fase 2 — Gestão financeira** ✅ · **Fase 3 — Motor financeiro** ✅ · **Fase 4 — Relatórios e importação** ✅ · **Fase 5 — Planeamento** ✅ · **Etapa 3 — Publicação, sem pagamentos** ✅ · **Etapa 4A — Nuvem (v0.11.0)**
 
 - `packages/fintrack_core`: núcleo em Dart puro, sem UI
   - `Money` (inteiros na unidade mínima), `Currency` (AOA, USD, EUR, BRL, GBP, ZAR)
@@ -32,6 +32,7 @@ App de gestão e inteligência financeira pessoal (Android e iOS, Flutter), cons
 - Categorias: criar, renomear, mudar o ícone e arquivar
 - Os seus dados: cópia de segurança cifrada (Argon2id + AES-256-GCM) com restauro, exportação completa em JSON
 - Política de privacidade e termos (`assets/legal/`, no app e públicos); ficha da Play Store em `docs/PLAY_STORE.md`
+- Nuvem (`lib/cloud/`, `supabase/migrations/`): conta Supabase (e-mail e palavra-passe), cifra ponta-a-ponta XChaCha20-Poly1305 de cada registo, chave embrulhada pela palavra-passe e por um código de recuperação (Argon2id + AES-GCM), sincronização offline-first por resumos SHA-256, movimentos só acrescentam também no servidor, RLS por utilizador, eliminação da conta no app
 - `tool/configure_android.py`: compileSdk 37, desugaring e recetores de notificações
 - `lib/planning/`: compromissos — criar, editar, pagar (gera a saída ligada), cancelar
 - `lib/home/`: Início (saldo disponível com horizonte, dicas rotativas, fluxo do mês, próximos compromissos, contas, recentes), Movimentos, Planear, Contas
@@ -47,7 +48,7 @@ App de gestão e inteligência financeira pessoal (Android e iOS, Flutter), cons
 - Sem os segredos `FINTRACK_KEYSTORE_*` no GitHub, o APK é assinado com uma chave de teste diferente em cada compilação (para atualizar é preciso desinstalar).
 - Os ficheiros exportados (PDF/CSV) não são cifrados.
 
-**A seguir:** etapa 4 (nuvem: conta, sincronização e Cofre Privado). Os passos pagos da publicação (conta Google Play, teste fechado) ficam para o fim.
+**A seguir (etapa 4B):** e-mail de envio próprio (SMTP) com confirmação e código em telemóvel novo, lista de dispositivos, sincronização em segundo plano. Os passos pagos da publicação ficam para o fim.
 
 ## Créditos
 
