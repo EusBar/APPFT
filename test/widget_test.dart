@@ -457,6 +457,19 @@ void main() {
     expect(records.keys, contains('account/${data.stored.single.id}'));
     expect(records.values.any((r) => r.payload.contains('Eusébio')), isFalse, reason: 'tudo cifrado');
     expect(data.settings['cloud.email'], 'eu@exemplo.ao');
+
+    // Terminar sessão: pede confirmação e sai logo, mesmo com a rede lenta.
+    final signOut = find.byKey(const Key('cloud-signout'));
+    await tester.ensureVisible(signOut);
+    await tester.pumpAndSettle();
+    await tester.tap(signOut);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Terminar sessão'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sessão terminada neste telemóvel.'), findsOneWidget);
+    expect(find.byKey(const Key('cloud-email')), findsOneWidget);
+    expect(data.settings['cloud.email'], isNull);
+    expect(data.settings['cloud.refresh'], isNull);
   });
 
   testWidgets('conta com confirmação por código e entrada num telemóvel novo', (tester) async {

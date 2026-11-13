@@ -233,6 +233,25 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     }
   }
 
+  Future<void> _signOut() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Terminar sessão?'),
+        content: const Text('Este telemóvel deixa de sincronizar. Os dados ficam aqui; '
+            'para voltar, entre de novo com o e-mail e a palavra-passe.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Terminar sessão')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    await ref.read(cloudProvider.notifier).signOut();
+    messenger.showSnackBar(const SnackBar(content: Text('Sessão terminada neste telemóvel.')));
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -305,7 +324,8 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                       ),
                     const Divider(height: FtSpace.xl),
                     OutlinedButton(
-                      onPressed: () => ref.read(cloudProvider.notifier).signOut(),
+                      key: const Key('cloud-signout'),
+                      onPressed: _signOut,
                       child: const Text('Terminar sessão neste telemóvel'),
                     ),
                     const SizedBox(height: FtSpace.sm),

@@ -107,6 +107,9 @@ class CloudController extends Notifier<CloudState> {
   Timer? _debounce;
   bool _applying = false;
 
+  /// Muda a cada fim de sessão: resultados de pedidos antigos são ignorados.
+  int _epoch = 0;
+
   // Fluxo em curso (só em memória, apagado no fim).
   String? _pendingEmail;
   String? _pendingPassword;
@@ -259,13 +262,20 @@ class CloudController extends Notifier<CloudState> {
   static const _endedCodes = {'session_not_found', 'refresh_token_not_found', 'invalid_grant', 'unauthorized'};
 
   Future<CloudSession?> _session(LocalStore store) async {
+    final epoch = _epoch;
     final refresh = await store.getSetting(_kRefresh);
     if (refresh == null) return null;
     try {
       final s = await _api.refresh(refresh);
+      if (epoch != _epoch) {
+        // A sessão foi terminada enquanto o pedido estava em curso.
+        unawaited(_api.signOut(s).catchError((_) {}));
+        return null;
+      }
       await store.setSetting(_kRefresh, s.refreshToken);
       return s;
     } on CloudException catch (e) {
+      if (epoch != _epoch) return null;
       if (_endedCodes.contains(e.code)) {
         // Sessão terminada noutro dispositivo: sai daqui (os dados ficam).
         await _forget(store);
@@ -282,6 +292,7 @@ class CloudController extends Notifier<CloudState> {
     if (store == null || state.syncing) return null;
     final keyB64 = await store.getSetting(_kKey);
     if (keyB64 == null) return null;
+    final epoch = _epoch;
     state = state.copyWith(syncing: true, clearError: true);
     try {
       final session = await _session(store);
@@ -294,6 +305,7 @@ class CloudController extends Notifier<CloudState> {
         store: store,
         crypto: CloudCrypto(base64Decode(keyB64)),
       ).run(session);
+      if (epoch != _epoch) return null; // sessão terminada entretanto
       await _touchDevice(store, session);
       final now = DateTime.now();
       await store.setSetting(_kLastSync, '${now.millisecondsSinceEpoch}');
@@ -305,9 +317,11 @@ class CloudController extends Notifier<CloudState> {
       }
       return report;
     } on CloudException catch (e) {
+      if (epoch != _epoch) return null;
       state = state.copyWith(syncing: false, error: e.message);
       return null;
     } catch (_) {
+      if (epoch != _epoch) return null;
       state = state.copyWith(syncing: false, error: 'Não foi possível sincronizar.');
       return null;
     }
@@ -396,17 +410,21 @@ class CloudController extends Notifier<CloudState> {
   Future<void> signOut() async {
     final store = _store;
     if (store == null) return;
-    try {
-      final s = await _session(store);
-      final id = state.deviceId;
-      if (s != null) {
-        if (id != null) await _api.deleteDevice(s, id);
-        await _api.signOut(s);
-      }
-    } catch (_) {
-      // Sem rede: termina localmente na mesma.
-    }
+    // Termina já neste telemóvel; o aviso ao servidor segue em fundo.
+    final refresh = await store.getSetting(_kRefresh);
+    final id = state.deviceId;
     await _forget(store);
+    if (refresh != null) unawaited(_remoteSignOut(refresh, id));
+  }
+
+  Future<void> _remoteSignOut(String refresh, String? deviceId) async {
+    try {
+      final s = await _api.refresh(refresh);
+      if (deviceId != null) await _api.deleteDevice(s, deviceId);
+      await _api.signOut(s);
+    } catch (_) {
+      // Sem rede ou token já trocado: a sessão local já terminou.
+    }
   }
 
   /// Apaga a conta e todos os dados na nuvem. Os dados deste telemóvel ficam.
@@ -419,6 +437,8 @@ class CloudController extends Notifier<CloudState> {
   }
 
   Future<void> _forget(LocalStore store) async {
+    _epoch++;
+    _debounce?.cancel();
     for (final k in [_kEmail, _kRefresh, _kKey, _kLastSync, _kKnownDevices, SyncEngine.lastPullKey]) {
       await store.setSetting(k, null);
     }
