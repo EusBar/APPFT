@@ -660,7 +660,8 @@ void main() {
     await setUpUser(tester);
     await tester.tap(find.text('IA'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Quanto posso gastar?'));
+    await tester.enterText(find.byKey(const Key('ask-question')), 'Quanto posso gastar?');
+    await tester.tap(find.byKey(const Key('ask-send')));
     // A resposta chega depois de um instante de "a pensar".
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pumpAndSettle();
