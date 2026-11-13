@@ -1,6 +1,8 @@
 import 'package:fintrack_core/fintrack_core.dart';
 import 'package:test/test.dart';
 
+String plain(String s) => s.replaceAll('\u00a0', ' ');
+
 void main() {
   const aoa = Currency.aoa;
   final today = DateTime(2026, 11, 13);
@@ -59,17 +61,17 @@ void main() {
 
   test('total do mês e por categoria', () {
     final a = engine().ask('Quanto gastei este mês?');
-    expect(a.text, contains('50 000,00'));
+    expect(plain(a.text), contains('50 000,00'));
     expect(a.lines.first, startsWith('Transporte'));
     final b = engine().ask('quanto gastei em transportes no mês passado');
-    expect(b.text, contains('20 000,00'));
+    expect(plain(b.text), contains('20 000,00'));
     expect(b.text, contains('Transporte'));
     expect(b.text, contains('mês passado'));
   });
 
   test('mês pelo nome e entradas', () {
-    expect(engine().ask('Quanto gastei em outubro?').text, contains('50 000,00'));
-    expect(engine().ask('Quanto recebi este ano?').text, contains('200 000,00'));
+    expect(plain(engine().ask('Quanto gastei em outubro?').text), contains('50 000,00'));
+    expect(plain(engine().ask('Quanto recebi este ano?').text), contains('200 000,00'));
   });
 
   test('categoria onde gasta mais', () {
@@ -93,7 +95,7 @@ void main() {
   test('saldo', () {
     final a = engine().ask('Qual é o meu saldo?');
     // 500 000 + 200 000 − 120 000 = 580 000
-    expect(a.text, contains('580 000,00'));
+    expect(plain(a.text), contains('580 000,00'));
   });
 
   test('tendências: categoria acima do habitual e poupança', () {
