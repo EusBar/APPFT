@@ -2,6 +2,7 @@ import 'package:fintrack_core/fintrack_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../design/plate.dart';
 import '../design/labels.dart';
 import '../design/tokens.dart';
 import '../finance/finance_data.dart';
@@ -34,8 +35,8 @@ class BudgetsView extends StatelessWidget {
     final month = DateTime(now.year, now.month);
     final budgets = [...data.budgets]..sort((a, b) => a.isGlobal ? -1 : b.isGlobal ? 1 : 0);
     if (budgets.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(FtSpace.xl),
+      return TextPlate(
+        padding: const EdgeInsets.all(FtSpace.lg),
         child: Text(
           'Defina quanto quer gastar por mês, no total ou por categoria. O FINTRACK '
           'avisa aos 50%, 80% e 100%.',
@@ -49,14 +50,14 @@ class BudgetsView extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(bottom: FtSpace.sm),
-          child: Text(
+          child: Align(alignment: Alignment.centerLeft, child: PlateLabel(child: Text(
             '${monthName(month.month)} de ${month.year}'.toUpperCase(),
             style: theme.textTheme.labelMedium?.copyWith(
               letterSpacing: 1.3,
               fontWeight: FontWeight.w600,
               color: theme.colorScheme.onSurfaceVariant,
             ),
-          ),
+          ))),
         ),
         for (final b in budgets)
           BudgetTile(

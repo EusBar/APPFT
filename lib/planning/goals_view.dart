@@ -2,6 +2,7 @@ import 'package:fintrack_core/fintrack_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../design/plate.dart';
 import '../design/labels.dart';
 import '../design/tokens.dart';
 import '../finance/finance_data.dart';
@@ -19,8 +20,8 @@ class GoalsView extends StatelessWidget {
     final theme = Theme.of(context);
     final goals = [for (final g in data.goals) if (!g.archived) g];
     if (goals.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(FtSpace.xl),
+      return TextPlate(
+        padding: const EdgeInsets.all(FtSpace.lg),
         child: Text(
           'Crie um objetivo (viagem, carro, reserva de emergência). Associe uma conta de '
           'poupança para o progresso ser automático, ou registe as contribuições à mão.',

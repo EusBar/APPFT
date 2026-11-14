@@ -8,6 +8,7 @@ import '../ai/ai_view.dart';
 import '../cloud/cloud_api.dart';
 import '../cloud/cloud_controller.dart';
 import '../design/backdrop.dart';
+import '../design/plate.dart';
 import '../design/country_photos.dart';
 import '../design/labels.dart';
 import '../design/tokens.dart';
@@ -330,11 +331,18 @@ class _Overview extends ConsumerWidget {
     final today = DateTime(now.year, now.month, now.day);
     final recent = ledger.active().take(5).toList();
 
-    Widget sectionHeader(String text, {VoidCallback? onMore}) => Row(
-          children: [
-            Expanded(child: Text(text, style: theme.textTheme.titleMedium)),
-            if (onMore != null) TextButton(onPressed: onMore, child: const Text('Ver todos')),
-          ],
+    Widget sectionHeader(String text, {VoidCallback? onMore}) => Padding(
+          padding: const EdgeInsets.only(bottom: FtSpace.sm),
+          child: Row(
+            children: [
+              PlateLabel(child: Text(text, style: theme.textTheme.titleMedium)),
+              const Spacer(),
+              if (onMore != null)
+                PlateLabel(
+                  child: InkWell(onTap: onMore, child: Text('Ver todos', style: TextStyle(color: theme.colorScheme.primary))),
+                ),
+            ],
+          ),
         );
 
     return ListView(
@@ -361,18 +369,27 @@ class _Overview extends ConsumerWidget {
         PlanningSummaryCard(data: data, onOpen: onOpenPlanning),
         const SizedBox(height: FtSpace.lg),
         sectionHeader('Contas'),
-        for (final a in data.openAccounts) _AccountRow(account: a, data: data, discreet: discreet),
+        TextPlate(
+          child: Column(children: [
+            for (final a in data.openAccounts) _AccountRow(account: a, data: data, discreet: discreet),
+          ]),
+        ),
         const SizedBox(height: FtSpace.lg),
         sectionHeader('Movimentos recentes', onMore: recent.isEmpty ? null : onSeeMovements),
         if (recent.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: FtSpace.md),
+          TextPlate(
+            padding: const EdgeInsets.all(FtSpace.md),
             child: Text(
               'Registe a primeira despesa ou entrada no botão "Movimento".',
               style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
+          )
+        else
+          TextPlate(
+            child: Column(children: [
+              for (final m in recent) MovementTile(movement: m, data: data, discreet: discreet),
+            ]),
           ),
-        for (final m in recent) MovementTile(movement: m, data: data, discreet: discreet),
       ],
     );
   }
@@ -525,7 +542,7 @@ class _AccountRow extends StatelessWidget {
     final theme = Theme.of(context);
     final a = account;
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: FtSpace.xs),
+      contentPadding: const EdgeInsets.symmetric(horizontal: FtSpace.md),
       leading: CircleAvatar(child: Icon(accountTypeIcon(a.type))),
       title: Text(a.name),
       subtitle: Text([
@@ -556,14 +573,22 @@ class _AccountsView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(FtSpace.lg, FtSpace.sm, FtSpace.lg, 96),
       children: [
-        for (final a in data.openAccounts) _AccountRow(account: a, data: data, discreet: discreet),
+        TextPlate(
+          child: Column(children: [
+            for (final a in data.openAccounts) _AccountRow(account: a, data: data, discreet: discreet),
+          ]),
+        ),
         if (data.archivedAccounts.isNotEmpty)
-          ExpansionTile(
-            tilePadding: const EdgeInsets.symmetric(horizontal: FtSpace.xs),
-            title: Text('Arquivadas (${data.archivedAccounts.length})', style: theme.textTheme.titleSmall),
-            children: [
-              for (final a in data.archivedAccounts) _AccountRow(account: a, data: data, discreet: discreet),
-            ],
+          TextPlate(
+            margin: const EdgeInsets.only(top: FtSpace.sm),
+            child: ExpansionTile(
+              tilePadding: const EdgeInsets.symmetric(horizontal: FtSpace.md),
+              shape: const Border(),
+              title: Text('Arquivadas (${data.archivedAccounts.length})', style: theme.textTheme.titleSmall),
+              children: [
+                for (final a in data.archivedAccounts) _AccountRow(account: a, data: data, discreet: discreet),
+              ],
+            ),
           ),
         const SizedBox(height: FtSpace.lg),
         GlassCard(

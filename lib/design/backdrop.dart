@@ -198,7 +198,8 @@ class _RotatingBackdropState extends State<RotatingBackdrop> {
   }
 }
 
-/// Etiqueta discreta com o nome do lugar da fotografia de fundo.
+/// Nome do lugar, escrito na própria fotografia (como a legenda de um
+/// fotógrafo): fica por baixo do conteúdo e nunca o tapa.
 class _PlaceTag extends StatelessWidget {
   const _PlaceTag({super.key, required this.place});
 
@@ -206,23 +207,24 @@ class _PlaceTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        const Icon(Icons.place_outlined, size: 14, color: Colors.white70),
-        const SizedBox(width: 4),
-        Flexible(
-          child: Text(
-            place,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.white70, fontSize: 12, letterSpacing: 0.2),
+    const shadow = [Shadow(color: Colors.black87, blurRadius: 8)];
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      const Icon(Icons.place_outlined, size: 13, color: Colors.white70, shadows: shadow),
+      const SizedBox(width: 4),
+      Flexible(
+        child: Text(
+          place,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            inherit: false,
+            color: Colors.white70,
+            fontSize: 12,
+            fontStyle: FontStyle.italic,
+            letterSpacing: 0.3,
+            shadows: shadow,
           ),
         ),
-      ]),
-    );
+      ),
+    ]);
   }
 }

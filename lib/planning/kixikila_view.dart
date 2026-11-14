@@ -2,6 +2,7 @@ import 'package:fintrack_core/fintrack_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../design/plate.dart';
 import '../design/labels.dart';
 import '../design/tokens.dart';
 import '../finance/finance_data.dart';
@@ -19,8 +20,8 @@ class KixikilaView extends StatelessWidget {
     final theme = Theme.of(context);
     final groups = [for (final g in data.kixikilas) if (!g.archived) g];
     if (groups.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(FtSpace.xl),
+      return TextPlate(
+        padding: const EdgeInsets.all(FtSpace.lg),
         child: Text(
           'Acompanhe a sua Kixikila: quanto contribui, quando é a próxima ronda e quando é a '
           'sua vez de receber. Os outros membros são só nomes; nenhum dado é partilhado.',

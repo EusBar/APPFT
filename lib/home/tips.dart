@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../design/plate.dart';
 import '../design/tokens.dart';
 
 enum TipTopic { finance, saving, investing }
@@ -142,7 +143,7 @@ class _TipsTickerState extends State<TipsTicker> {
     final theme = Theme.of(context);
     final tip = tips[_index];
     // Discreta: tom apagado, letra pequena, sem cor de destaque.
-    final muted = theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.72);
+    final muted = theme.colorScheme.onSurfaceVariant;
 
     return Semantics(
       label: 'Dica de ${tipTopicLabel(tip.topic)}: ${tip.text}',
@@ -152,8 +153,8 @@ class _TipsTickerState extends State<TipsTicker> {
         behavior: HitTestBehavior.opaque,
         onTap: _next,
         onLongPress: _showAll,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(FtSpace.xs, FtSpace.xs, FtSpace.xs, FtSpace.xs),
+        child: TextPlate(
+          padding: const EdgeInsets.symmetric(horizontal: FtSpace.md, vertical: FtSpace.sm),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

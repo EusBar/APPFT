@@ -2,6 +2,7 @@ import 'package:fintrack_core/fintrack_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../design/plate.dart';
 import '../design/labels.dart';
 import '../design/tokens.dart';
 import '../finance/finance_data.dart';
@@ -31,22 +32,22 @@ class CommitmentsView extends StatelessWidget {
 
     Widget header(String text) => Padding(
           padding: const EdgeInsets.only(top: FtSpace.lg, bottom: FtSpace.xs),
-          child: Text(
+          child: Align(alignment: Alignment.centerLeft, child: PlateLabel(child: Text(
             text.toUpperCase(),
             style: theme.textTheme.labelMedium?.copyWith(
               letterSpacing: 1.3,
               color: theme.colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.w600,
             ),
-          ),
+          ))),
         );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (pending.isEmpty && done.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: FtSpace.xl),
+          TextPlate(
+            padding: const EdgeInsets.all(FtSpace.lg),
             child: Text(
               'Sem compromissos. Registe pagamentos previstos (renda, propinas, '
               'prestações) para o saldo disponível refletir o que já está prometido.',
@@ -56,15 +57,21 @@ class CommitmentsView extends StatelessWidget {
           ),
         if (overdue.isNotEmpty) ...[
           header('Em atraso'),
-          for (final c in overdue) CommitmentTile(commitment: c, data: data, discreet: discreet),
+          TextPlate(child: Column(children: [
+            for (final c in overdue) CommitmentTile(commitment: c, data: data, discreet: discreet),
+          ])),
         ],
         if (upcoming.isNotEmpty) ...[
           header('Pendentes'),
-          for (final c in upcoming) CommitmentTile(commitment: c, data: data, discreet: discreet),
+          TextPlate(child: Column(children: [
+            for (final c in upcoming) CommitmentTile(commitment: c, data: data, discreet: discreet),
+          ])),
         ],
         if (done.isNotEmpty) ...[
           header('Concluídos'),
-          for (final c in done.take(20)) CommitmentTile(commitment: c, data: data, discreet: discreet),
+          TextPlate(child: Column(children: [
+            for (final c in done.take(20)) CommitmentTile(commitment: c, data: data, discreet: discreet),
+          ])),
         ],
       ],
     );

@@ -2,6 +2,7 @@ import 'package:fintrack_core/fintrack_core.dart';
 import 'package:flutter/material.dart';
 
 import '../design/labels.dart';
+import '../design/plate.dart';
 import '../design/tokens.dart';
 import '../importing/import_screen.dart';
 import '../reports/report_screen.dart';
@@ -264,28 +265,38 @@ class _MovementsViewState extends State<MovementsView> {
         if ((_kind == null || m.kind == _kind) && _matches(m, q) && _passesFilters(m)) m,
     ];
 
+    // Um dia = uma etiqueta e uma placa com os movimentos desse dia.
     final children = <Widget>[];
+    var day = <Widget>[];
     DateTime? lastDay;
+    void closeDay() {
+      if (day.isEmpty) return;
+      children.add(TextPlate(child: Column(children: day)));
+      day = <Widget>[];
+    }
+
     for (final m in list) {
       if (m.date != lastDay) {
+        closeDay();
         lastDay = m.date;
         children.add(Padding(
           padding: const EdgeInsets.only(top: FtSpace.md, bottom: FtSpace.xs),
-          child: Text(
-            dayLabel(m.date),
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: PlateLabel(
+              child: Text(dayLabel(m.date), style: theme.textTheme.labelLarge),
             ),
           ),
         ));
       }
-      children.add(MovementTile(
+      day.add(MovementTile(
         movement: m,
         data: widget.data,
         discreet: widget.discreet,
         cancelled: ledger.isReversed(m.id),
       ));
     }
+    closeDay();
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(FtSpace.lg, FtSpace.sm, FtSpace.lg, 96),
