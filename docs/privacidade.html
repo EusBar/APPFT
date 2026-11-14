@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Política de Privacidade do FINTRACK</title>
+<style>
+:root{--bg:#0b0f14;--card:#131a22;--text:#e6edf3;--muted:#9aa7b4;--accent:#5eead4}
+@media (prefers-color-scheme: light){:root{--bg:#f6f8fa;--card:#fff;--text:#1f2328;--muted:#59636e;--accent:#0f766e}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);
+font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:760px;margin:0 auto;padding:32px 16px 64px}
+header{display:flex;align-items:center;gap:10px;margin-bottom:24px}
+.logo{width:36px;height:36px;border-radius:10px;background:var(--accent);color:#000;
+display:grid;place-items:center;font-weight:800}
+.brand{font-weight:800;letter-spacing:2px}
+article{background:var(--card);border-radius:20px;padding:24px 20px}
+h1{font-size:1.7rem;line-height:1.25;margin:0 0 4px}h2{font-size:1.15rem;margin:28px 0 8px}
+p,li{color:var(--text)}.muted{color:var(--muted)}a{color:var(--accent)}
+ul{padding-left:20px}code{background:rgba(127,127,127,.15);padding:1px 5px;border-radius:5px}
+nav{margin-top:20px;display:flex;gap:16px;flex-wrap:wrap}
+footer{margin-top:24px;font-size:.9rem;color:var(--muted)}
+</style>
+</head>
+<body><main>
+<header><div class="logo">F</div><div class="brand">FINTRACK</div></header>
+<article>
+<h1>Política de Privacidade do FINTRACK</h1>
+<p class="muted">Última atualização: 14 de novembro de 2026</p>
+<p>O FINTRACK é uma aplicação de gestão financeira pessoal. Esta política explica que dados trata, onde ficam e que direitos tem. Escrevemo-la em linguagem simples, de acordo com a Lei n.º 22/11 de Angola (Lei da Proteção de Dados Pessoais) e, quando aplicável, com o RGPD (Europa) e a LGPD (Brasil).</p>
+<h2>O essencial</h2>
+<ul>
+<li>Os seus dados financeiros ficam no seu telemóvel, numa base de dados cifrada (AES-256).</li>
+<li>A <strong>conta FINTRACK é opcional</strong>. Se a criar, os dados são cifrados no telemóvel <strong>antes</strong> de seguirem para a nuvem (cifra ponta-a-ponta): o servidor só guarda texto ilegível e nem nós os conseguimos ler.</li>
+<li>A <strong>inteligência artificial do FINTRACK corre no telemóvel</strong>. Nenhum dado é enviado a serviços de IA.</li>
+<li>Não há publicidade nem ferramentas de análise ou rastreio.</li>
+<li>O FINTRACK <strong>não se liga a bancos</strong>, não pede credenciais bancárias e não movimenta dinheiro.</li>
+<li>Pode <strong>exportar</strong> ou <strong>apagar</strong> todos os seus dados a qualquer momento, dentro da aplicação.</li>
+</ul>
+<h2>Que dados tratamos</h2>
+<ul>
+<li><strong>Perfil:</strong> nome, alcunha e, se quiser, uma fotografia.</li>
+<li><strong>Dados financeiros que regista:</strong> contas, saldos iniciais, movimentos, categorias, compromissos, orçamentos, objetivos e grupos de Kixikila (os outros membros são apenas nomes que escreve).</li>
+<li><strong>Segurança:</strong> o PIN nunca é guardado. Guardamos apenas um verificador derivado com Argon2id e as chaves no Android Keystore ou no iOS Keychain.</li>
+<li><strong>Conta FINTRACK (opcional):</strong> e-mail, palavra-passe (guardada pelo fornecedor de autenticação apenas em forma irreversível), nome e sistema de cada telemóvel ligado à conta, e os seus dados financeiros <strong>cifrados</strong> no telemóvel.</li>
+<li><strong>Premium (opcional):</strong> o plano subscrito e a data de validade, confirmados junto da Google Play ou da App Store. Os dados de pagamento ficam apenas na loja; o FINTRACK nunca os recebe.</li>
+</ul>
+<h2>Onde ficam e como são protegidos</h2>
+<ul>
+<li>Base de dados local cifrada com SQLCipher (AES-256). A chave só é libertada com o seu PIN ou a sua biometria.</li>
+<li>A biometria é verificada pelo sistema do telemóvel. O FINTRACK nunca recebe a sua impressão digital nem o seu rosto.</li>
+<li>As cópias de segurança são cifradas com a palavra-passe que escolher (Argon2id + AES-256-GCM). Sem essa palavra-passe, ninguém as consegue abrir, nem nós.</li>
+<li>Sem cópias automáticas para a nuvem do sistema (Google ou iCloud).</li>
+<li><strong>Nuvem do FINTRACK:</strong> servidores Supabase na União Europeia (Frankfurt). Cada registo é cifrado no telemóvel com XChaCha20-Poly1305; a chave só existe nos seus telemóveis, protegida pela sua palavra-passe e por um código de recuperação que só o utilizador conhece. Cada pessoa só tem acesso às suas próprias linhas.</li>
+<li><strong>Códigos por e-mail:</strong> ao criar conta ou entrar num telemóvel novo, enviamos um código de 6 dígitos para o seu e-mail.</li>
+</ul>
+<h2>Permissões</h2>
+<p>O FINTRACK pede cada acesso só quando é preciso e explica porquê antes de o pedir:</p>
+<ul>
+<li><strong>Fotografias:</strong> para escolher a fotografia do perfil. O seletor do sistema entrega apenas a fotografia escolhida.</li>
+<li><strong>Ficheiros:</strong> para importar movimentos de CSV ou Excel, ou restaurar uma cópia. Só é lido o ficheiro escolhido.</li>
+<li><strong>Notificações:</strong> para lembrar compromissos e contribuições. Os avisos não mostram valores no ecrã bloqueado.</li>
+<li><strong>Biometria:</strong> opcional, como atalho do PIN.</li>
+</ul>
+<p>Pode retirar cada consentimento em Definições › Privacidade e permissões.</p>
+<h2>Partilha com terceiros</h2>
+<p>Não vendemos, não alugamos e não partilhamos os seus dados. Os relatórios em PDF ou CSV e as exportações só saem do telemóvel quando os partilha manualmente, e o destino é escolhido por si.</p>
+<p>Prestadores que nos ajudam a funcionar, apenas na medida necessária:</p>
+<ul>
+<li><strong>Supabase</strong> (alojamento da nuvem e autenticação): guarda o e-mail e os dados já cifrados.</li>
+<li><strong>Google (Gmail)</strong>: envia os e-mails com os códigos.</li>
+<li><strong>Google Play e App Store</strong>: tratam os pagamentos do Premium; o FINTRACK só recebe a confirmação e a validade.</li>
+</ul>
+<h2>Inteligência artificial</h2>
+<p>O Smart Entry, o AI Guard, o pulso financeiro, as tendências e as respostas do &quot;Pergunte ao FINTRACK&quot; são calculados <strong>no seu telemóvel</strong>, sem Internet. Se um dia existir uma função de IA na nuvem, será opcional, esta política será atualizada antes e pediremos o seu consentimento explícito.</p>
+<h2>Os seus direitos</h2>
+<p>Tem direito a aceder aos seus dados, corrigi-los, exportá-los e apagá-los. Na aplicação:</p>
+<ul>
+<li><strong>Exportar:</strong> Definições › Os seus dados › Exportar todos os dados.</li>
+<li><strong>Apagar do telemóvel:</strong> Definições › Apagar tudo e repor. Os dados são apagados do telemóvel de imediato.</li>
+<li><strong>Apagar a conta e os dados na nuvem:</strong> Definições › Conta e sincronização › Eliminar conta e dados na nuvem. Tudo é apagado do servidor de imediato.</li>
+<li><strong>Cancelar o Premium:</strong> nas subscrições da Google Play ou da App Store.</li>
+</ul>
+<h2>Menores</h2>
+<p>O FINTRACK destina-se a maiores de 18 anos.</p>
+<h2>Contacto</h2>
+<p>Para questões sobre privacidade: <strong><a href="mailto:appfintracksolution@gmail.com">appfintracksolution@gmail.com</a></strong>.</p>
+<h2>Alterações</h2>
+<p>Avisaremos dentro da aplicação sempre que esta política mudar de forma relevante.</p>
+</article>
+<nav><a href="index.html">Início</a><a href="privacidade.html">Política de privacidade</a><a href="termos.html">Termos de utilização</a></nav>
+<footer>FINTRACK · <a href="mailto:appfintracksolution@gmail.com">appfintracksolution@gmail.com</a></footer>
+</main></body>
+</html>

@@ -39,7 +39,9 @@ pelo projeto. O código, o servidor e a compilação já estão preparados.
 
 ## 3. Antes de publicar
 
-- [ ] Confirmar autorização para usar as 5 fotografias de Angola.
+- [x] Autorização para usar as 5 fotografias de Angola (confirmada pelo responsável).
 - [ ] Decidir os preços do Premium (mensal e anual).
-- [ ] Publicar a política de privacidade num endereço público (as lojas exigem URL).
+- [ ] Ativar o GitHub Pages (Settings → Pages → ramo principal, pasta `/docs`). Endereços:
+  - Política de privacidade: https://eusbar.github.io/APPFT/privacidade.html
+  - Termos de utilização: https://eusbar.github.io/APPFT/termos.html
 - [ ] Fazer uma compra de teste em cada loja e confirmar que o Premium abre.

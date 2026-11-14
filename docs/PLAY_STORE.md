@@ -56,7 +56,7 @@ financeiro profissional.
 - Capturas de ecrã (2 a 8, telemóvel): a tirar com o **modo de demonstração** (etapa futura) ou com dados fictícios — nunca com dados reais.
 
 **Política de privacidade (URL pública):**
-`https://github.com/EusBar/APPFT/blob/main/assets/legal/privacidade.md`
+`https://eusbar.github.io/APPFT/privacidade.html`
 (depois de juntar o trabalho ao ramo `main`; antes disso, usar o ramo atual)
 
 ## 2. Formulário "Segurança dos dados" (respostas para esta versão)
