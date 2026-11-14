@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:fintrack_core/fintrack_core.dart';
 
 /// Fotografia de um ponto turístico, associada a uma moeda.
@@ -23,7 +25,7 @@ String currencyRegion(Currency c) => switch (c.code) {
       _ => c.code,
     };
 
-/// Cinco maravilhas por moeda, já desfocadas e reduzidas.
+/// Cinco maravilhas por moeda (720×1280, desfoque leve: reconhece-se o lugar).
 const Map<String, List<CountryPhoto>> countryPhotos = {
   'AOA': [
     CountryPhoto('assets/backgrounds/countries/aoa_1.jpg', 'Quedas de Kalandula, Malanje'),
@@ -70,3 +72,17 @@ const Map<String, List<CountryPhoto>> countryPhotos = {
 };
 
 List<CountryPhoto> photosFor(Currency c) => countryPhotos[c.code] ?? const [];
+
+/// Todo o banco de paisagens, numa ordem baralhada por cada abertura do app,
+/// a começar por uma fotografia do país da moeda principal.
+List<CountryPhoto> landscapeTour(Currency main) {
+  final home = photosFor(main);
+  final rest = [
+    for (final list in countryPhotos.values) ...list,
+  ]..removeWhere(home.contains);
+  final first = home.isEmpty ? <CountryPhoto>[] : [home[_seed % home.length]];
+  final others = [...home.where((p) => !first.contains(p)), ...rest]..shuffle(Random(_seed));
+  return [...first, ...others];
+}
+
+final int _seed = DateTime.now().millisecondsSinceEpoch;

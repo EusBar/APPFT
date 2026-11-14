@@ -1,9 +1,11 @@
 import 'dart:async';
 
+import 'package:fintrack_core/fintrack_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../design/backdrop.dart';
+import '../design/country_photos.dart';
 import '../design/tokens.dart';
 import '../security/session.dart';
 import 'account_screen.dart';
@@ -39,13 +41,8 @@ const _slides = [
       'Perdeu o telemóvel? Entre noutro com a sua conta e recupera tudo.'),
 ];
 
-const _photos = [
-  'assets/backgrounds/savings.jpg',
-  'assets/backgrounds/shopping.jpg',
-  'assets/backgrounds/payment.jpg',
-  'assets/backgrounds/analytics.jpg',
-  'assets/backgrounds/lock.jpg',
-];
+/// Paisagens do banco de imagens, a começar por Angola.
+final _tour = landscapeTour(Currency.aoa);
 
 class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   final _pages = PageController();
@@ -87,7 +84,9 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
     final scheme = theme.colorScheme;
     return Scaffold(
       body: RotatingBackdrop(
-        assets: _photos,
+        assets: [for (final p in _tour) p.asset],
+        captions: [for (final p in _tour) p.place],
+        captionAtTop: true,
         strength: FtBackdropStrength.normal,
         interval: const Duration(seconds: 6),
         child: SafeArea(

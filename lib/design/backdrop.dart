@@ -24,7 +24,8 @@ class FtBackdrop extends StatelessWidget {
     required FtImage image,
     required this.child,
     this.strength = FtBackdropStrength.normal,
-  }) : asset = image.asset;
+  })  : asset = image.asset,
+        caption = null;
 
   /// Fundo com qualquer fotografia dos assets (ex.: ponto turístico).
   const FtBackdrop.asset({
@@ -32,11 +33,15 @@ class FtBackdrop extends StatelessWidget {
     required this.asset,
     required this.child,
     this.strength = FtBackdropStrength.normal,
+    this.caption,
   });
 
   final String asset;
   final Widget child;
   final FtBackdropStrength strength;
+
+  /// Camada entre a fotografia e o conteúdo (ex.: nome do lugar).
+  final Widget? caption;
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +49,7 @@ class FtBackdrop extends StatelessWidget {
     final (top, middle, bottom) = switch (strength) {
       FtBackdropStrength.normal => (0.62, 0.80, 0.96),
       FtBackdropStrength.subtle => (0.78, 0.92, 1.0),
+      FtBackdropStrength.scenic => (0.38, 0.62, 0.90),
     };
     return Stack(
       fit: StackFit.expand,
@@ -75,6 +81,7 @@ class FtBackdrop extends StatelessWidget {
             ),
           ),
         ),
+        if (caption != null) caption!,
         child,
       ],
     );
@@ -87,6 +94,10 @@ enum FtBackdropStrength {
 
   /// Ecrãs com muitos valores: a imagem fica só sugerida.
   subtle,
+
+  /// Paisagens no uso diário: a fotografia mostra-se, o fundo escurece em
+  /// baixo, onde ficam os valores.
+  scenic,
 }
 
 /// Fundo que passa devagar por várias fotografias, com fundido suave.
@@ -98,10 +109,20 @@ class RotatingBackdrop extends StatefulWidget {
     this.fallback = FtImage.analytics,
     this.strength = FtBackdropStrength.subtle,
     // Muda o suficiente para se notar, sem distrair do que se está a fazer.
-    this.interval = const Duration(seconds: 45),
+    this.interval = const Duration(seconds: 30),
+    this.captions,
+    this.captionBottom = 96,
+    this.captionAtTop = false,
   });
 
   final List<String> assets;
+
+  /// Nome do lugar de cada fotografia (mesma ordem de [assets]).
+  final List<String>? captions;
+
+  /// Distância ao fundo (acima da barra de navegação).
+  final double captionBottom;
+  final bool captionAtTop;
   final FtImage fallback;
   final Widget child;
   final FtBackdropStrength strength;
@@ -151,10 +172,57 @@ class _RotatingBackdropState extends State<RotatingBackdrop> {
   @override
   Widget build(BuildContext context) {
     final assets = widget.assets;
+    final captions = widget.captions;
+    final place = captions == null || captions.isEmpty ? null : captions[_index % captions.length];
+    final insets = MediaQuery.paddingOf(context);
     return FtBackdrop.asset(
       asset: assets.isEmpty ? widget.fallback.asset : assets[_index % assets.length],
       strength: widget.strength,
+      caption: place == null
+          ? null
+          : Positioned(
+              left: 16,
+              right: 16,
+              top: widget.captionAtTop ? insets.top + 8 : null,
+              bottom: widget.captionAtTop ? null : insets.bottom + widget.captionBottom,
+              child: Align(
+                alignment: widget.captionAtTop ? Alignment.topRight : Alignment.bottomLeft,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 1200),
+                  child: _PlaceTag(key: ValueKey(place), place: place),
+                ),
+              ),
+            ),
       child: widget.child,
+    );
+  }
+}
+
+/// Etiqueta discreta com o nome do lugar da fotografia de fundo.
+class _PlaceTag extends StatelessWidget {
+  const _PlaceTag({super.key, required this.place});
+
+  final String place;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.place_outlined, size: 14, color: Colors.white70),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            place,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Colors.white70, fontSize: 12, letterSpacing: 0.2),
+          ),
+        ),
+      ]),
     );
   }
 }

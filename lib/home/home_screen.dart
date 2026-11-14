@@ -121,8 +121,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _ => 'Contas',
     };
 
+    final tour = landscapeTour(mainCurrency);
     return RotatingBackdrop(
-      assets: [for (final p in photosFor(mainCurrency)) p.asset],
+      assets: [for (final p in tour) p.asset],
+      captions: [for (final p in tour) p.place],
+      strength: FtBackdropStrength.scenic,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
