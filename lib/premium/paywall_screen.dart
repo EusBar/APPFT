@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../cloud/account_screen.dart';
+import '../cloud/cloud_controller.dart';
 import '../design/backdrop.dart';
 import '../design/tokens.dart';
 import 'billing.dart';
@@ -142,14 +144,30 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                   ),
                 ),
               const SizedBox(height: FtSpace.sm),
-              FilledButton(
-                key: const Key('paywall-buy'),
-                style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
-                onPressed: p.busy ? null : () => ref.read(premiumProvider.notifier).buy(_selected),
-                child: p.busy
-                    ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5))
-                    : const Text('Continuar'),
-              ),
+              if (!ref.watch(cloudProvider.select((c) => c.signedIn))) ...[
+                Text(
+                  'O Premium fica ligado à sua conta FINTRACK: confirmado pela loja e válido em todos os seus telemóveis.',
+                  style: muted,
+                ),
+                const SizedBox(height: FtSpace.sm),
+                FilledButton.icon(
+                  key: const Key('paywall-signin'),
+                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
+                  icon: const Icon(Icons.login),
+                  label: const Text('Entrar na conta para subscrever'),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(builder: (_) => const AccountScreen()),
+                  ),
+                ),
+              ] else
+                FilledButton(
+                  key: const Key('paywall-buy'),
+                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
+                  onPressed: p.busy ? null : () => ref.read(premiumProvider.notifier).buy(_selected),
+                  child: p.busy
+                      ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5))
+                      : const Text('Continuar'),
+                ),
               const SizedBox(height: FtSpace.sm),
               Text(
                 'Renova automaticamente. Cancele quando quiser nas subscrições da Google Play ou da App Store.',

@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../cloud/cloud_api.dart';
+import '../cloud/cloud_controller.dart';
 import '../security/session.dart';
 import 'billing.dart';
 
@@ -88,7 +90,28 @@ class PremiumController extends Notifier<PremiumState> {
   PremiumState build() {
     ref.onDispose(() => _sub?.cancel());
     Future.microtask(_load);
+    // Ao entrar numa conta, a subscrição guardada no servidor vale aqui também.
+    ref.listen(cloudProvider.select((c) => c.email), (_, email) {
+      if (email != null) _refreshFromServer();
+    });
     return const PremiumState();
+  }
+
+  Future<void> _refreshFromServer() async {
+    try {
+      final sub = await ref.read(cloudProvider.notifier).serverSubscription();
+      if (sub == null) return;
+      await _remember(sub.productId, sub.expiresAt);
+    } catch (_) {
+      // Sem rede: vale a última confirmação guardada.
+    }
+  }
+
+  Future<void> _remember(String productId, DateTime until) async {
+    final secrets = ref.read(secretStoreProvider);
+    await secrets.write(_kUntil, '${until.millisecondsSinceEpoch}');
+    await secrets.write(_kProduct, productId);
+    state = state.copyWith(until: until, productId: productId);
   }
 
   Billing get _billing => ref.read(billingProvider);
@@ -124,15 +147,30 @@ class PremiumController extends Notifier<PremiumState> {
     switch (e.status) {
       case BillingStatus.purchased:
       case BillingStatus.restored:
-        // Validade local até à próxima confirmação da loja (com margem).
-        final days = e.productId == PremiumIds.yearly ? 370 : 35;
-        final until = DateTime.now().add(Duration(days: days));
-        final secrets = ref.read(secretStoreProvider);
-        await secrets.write(_kUntil, '${until.millisecondsSinceEpoch}');
-        await secrets.write(_kProduct, e.productId);
+        DateTime? until;
+        var productId = e.productId;
+        final data = e.data;
+        if (ref.read(cloudProvider).signedIn && data != null && data.isNotEmpty) {
+          // O servidor pergunta à loja se a compra é verdadeira e até quando.
+          try {
+            final sub = await ref.read(cloudProvider.notifier).verifyPurchase(e.platform, data);
+            if (sub == null) {
+              state = state.copyWith(busy: false, message: 'A loja não confirmou esta compra.');
+              return;
+            }
+            until = sub.expiresAt;
+            productId = sub.productId;
+          } on CloudException catch (x) {
+            if (x.code != 'not_configured') {
+              state = state.copyWith(busy: false, message: x.message);
+              return;
+            }
+          }
+        }
+        // Sem servidor ligado à loja: validade local até à próxima confirmação.
+        until ??= DateTime.now().add(Duration(days: e.productId == PremiumIds.yearly ? 370 : 35));
+        await _remember(productId, until);
         state = state.copyWith(
-          until: until,
-          productId: e.productId,
           busy: false,
           message: e.status == BillingStatus.purchased ? 'Bem-vindo ao FINTRACK Premium!' : 'Subscrição restaurada.',
         );

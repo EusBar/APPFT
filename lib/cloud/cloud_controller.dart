@@ -314,6 +314,23 @@ class CloudController extends Notifier<CloudState> {
     }
   }
 
+  /// Subscrição Premium guardada no servidor para esta conta.
+  Future<RemoteSubscription?> serverSubscription() async {
+    final store = _store;
+    if (store == null) return null;
+    final s = await _session(store);
+    return s == null ? null : _api.subscription(s);
+  }
+
+  /// Pede ao servidor que confirme uma compra junto da loja.
+  Future<RemoteSubscription?> verifyPurchase(String platform, String data) async {
+    final store = _store;
+    if (store == null) throw const CloudException('App bloqueado.');
+    final s = await _session(store);
+    if (s == null) throw const CloudException('Entre na sua conta FINTRACK.', code: 'unauthorized');
+    return _api.verifyPurchase(s, platform: platform, data: data);
+  }
+
   /// Sincroniza agora. Devolve o relatório, ou `null` sem sessão.
   Future<SyncReport?> syncNow() async {
     final store = _store;

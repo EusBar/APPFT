@@ -683,6 +683,25 @@ void main() {
     secrets.values['premium.trialStart'] =
         '${DateTime.now().subtract(const Duration(days: 20)).millisecondsSinceEpoch}';
     await setUpUser(tester);
+    // O Premium fica ligado à conta: cria-se uma antes de subscrever.
+    await tester.tap(find.byTooltip('Definições'));
+    await tester.pumpAndSettle();
+    await tapText(tester, 'Conta e sincronização');
+    await tester.enterText(find.byKey(const Key('cloud-email')), 'eu@exemplo.ao');
+    await tester.enterText(find.byKey(const Key('cloud-password')), 'Segura12345');
+    await tester.enterText(find.byKey(const Key('cloud-confirm')), 'Segura12345');
+    final submit = find.widgetWithText(FilledButton, 'Criar conta');
+    await tester.ensureVisible(submit);
+    await tester.pumpAndSettle();
+    await tester.tap(submit);
+    await tester.pumpAndSettle();
+    final shown = tester.widget<SelectableText>(find.byKey(const Key('recovery-code'))).data!;
+    await tester.enterText(find.byKey(const Key('recovery-check')), shown.replaceAll(' – ', '-').split('-').last);
+    await tapText(tester, 'Guardei o código');
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
     await tester.tap(find.text('IA'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('locked-pulse')), findsOneWidget);
@@ -703,6 +722,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(billing.bought, [PremiumIds.yearly]);
     expect(secrets.values['premium.product'], PremiumIds.yearly);
+    final user = cloud.users['eu@exemplo.ao']!.$1;
+    expect(cloud.subscriptions[user]?.productId, PremiumIds.yearly, reason: 'confirmada pelo servidor');
 
     await tester.pageBack();
     await tester.pumpAndSettle();
@@ -744,7 +765,7 @@ void main() {
     await typePin(tester, '482917');
     await tapText(tester, 'Política de privacidade');
     expect(find.text('Política de Privacidade do FINTRACK'), findsOneWidget);
-    expect(find.textContaining('apenas no seu telemóvel'), findsWidgets);
+    expect(find.textContaining('cifra ponta-a-ponta'), findsWidgets);
   });
 
   testWidgets('saldo inválido mostra erro e não grava', (tester) async {

@@ -63,7 +63,10 @@ class Ledger {
   }
 
   /// Movimentos em vigor: nem estornos nem estornados, mais recentes primeiro.
-  List<Movement> active() {
+  /// Calculado uma vez (o livro-razão é imutável) e partilhado, só leitura.
+  List<Movement> active() => _active;
+
+  late final List<Movement> _active = () {
     final list = [
       for (final m in movements)
         if (!m.isReversal && !isReversed(m.id)) m,
@@ -72,17 +75,25 @@ class Ledger {
       final byDate = b.date.compareTo(a.date);
       return byDate != 0 ? byDate : b.createdAt.compareTo(a.createdAt);
     });
-    return list;
-  }
+    return List<Movement>.unmodifiable(list);
+  }();
+
+  /// Saldos de todas as contas numa só passagem pelos registos (em cache).
+  late final Map<String, int> _balances = () {
+    final out = {for (final a in accounts.values) a.id: a.openingBalance.minor};
+    for (final m in movements) {
+      for (final id in [m.accountId, if (m.toAccountId != null) m.toAccountId!]) {
+        final current = out[id];
+        if (current != null) out[id] = current + m.effectOn(id);
+      }
+    }
+    return out;
+  }();
 
   Money balanceOf(String accountId) {
     final account = accounts[accountId];
     if (account == null) throw ArgumentError.value(accountId, 'accountId', 'Conta desconhecida');
-    var minor = account.openingBalance.minor;
-    for (final m in movements) {
-      minor += m.effectOn(accountId);
-    }
-    return Money(minor, account.currency);
+    return Money(_balances[accountId]!, account.currency);
   }
 
   /// Saldos somados por moeda; moedas diferentes nunca se misturam.

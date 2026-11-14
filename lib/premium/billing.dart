@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,10 +18,14 @@ class PremiumProduct {
 enum BillingStatus { purchased, restored, pending, canceled, error }
 
 class BillingEvent {
-  const BillingEvent(this.productId, this.status, {this.message});
+  const BillingEvent(this.productId, this.status, {this.message, this.data, this.platform = 'android'});
   final String productId;
   final BillingStatus status;
   final String? message;
+
+  /// Comprovativo da loja, para o servidor confirmar.
+  final String? data;
+  final String platform;
 }
 
 /// Google Play / App Store, atrás de uma interface simples (e testável).
@@ -87,7 +92,13 @@ class StoreBilling implements Billing {
         PurchaseStatus.canceled => BillingStatus.canceled,
         PurchaseStatus.error => BillingStatus.error,
       };
-      _events.add(BillingEvent(p.productID, status, message: p.error?.message));
+      _events.add(BillingEvent(
+        p.productID,
+        status,
+        message: p.error?.message,
+        data: p.verificationData.serverVerificationData,
+        platform: Platform.isIOS ? 'ios' : 'android',
+      ));
       if (p.pendingCompletePurchase) await _iap.completePurchase(p);
     }
   }
@@ -116,13 +127,13 @@ class MemoryBilling implements Billing {
   @override
   Future<void> buy(String productId) async {
     bought.add(productId);
-    _events.add(BillingEvent(productId, BillingStatus.purchased));
+    _events.add(BillingEvent(productId, BillingStatus.purchased, data: 'valid:$productId'));
   }
 
   @override
   Future<void> restore() async {
     for (final id in bought) {
-      _events.add(BillingEvent(id, BillingStatus.restored));
+      _events.add(BillingEvent(id, BillingStatus.restored, data: 'valid:$id'));
     }
   }
 }

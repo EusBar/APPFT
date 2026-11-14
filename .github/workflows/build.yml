@@ -68,13 +68,26 @@ jobs:
       - name: Testes
         run: flutter test
 
-      - name: Compilar APK
-        run: flutter build apk --release
+      - name: Compilar APK (ofuscado)
+        run: flutter build apk --release --obfuscate --split-debug-info=build/symbols
 
       - uses: actions/upload-artifact@v4
         with:
           name: fintrack-apk
           path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+
+      - name: Compilar pacote para a Google Play (.aab)
+        if: github.event_name == 'workflow_dispatch'
+        run: flutter build appbundle --release --obfuscate --split-debug-info=build/symbols
+
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          name: fintrack-play-aab
+          path: |
+            build/app/outputs/bundle/release/app-release.aab
+            build/symbols
           if-no-files-found: error
 
   ios:
@@ -104,3 +117,60 @@ jobs:
 
       - name: Compilar iOS (sem assinatura)
         run: flutter build ios --release --no-codesign
+
+  ios-testflight:
+    # Só quando pedido à mão (Actions → Build → Run workflow) e com a conta
+    # Apple Developer pronta. Assina e envia para o TestFlight.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: macos-15-intel
+    timeout-minutes: 60
+    env:
+      ASC_KEY_ID: ${{ secrets.APPLE_ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.APPLE_ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.APPLE_ASC_KEY_P8 }}
+      TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - name: Confirmar segredos da Apple
+        run: |
+          if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_KEY_P8" ] || [ -z "$TEAM_ID" ]; then
+            echo "::error::Faltam os segredos APPLE_ASC_KEY_ID, APPLE_ASC_ISSUER_ID, APPLE_ASC_KEY_P8 e APPLE_TEAM_ID."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Preparar projeto iOS
+        run: |
+          flutter create --platforms=android,ios --org ao.fintrack --project-name fintrack .
+          python3 tool/configure_ios.py
+          flutter pub get
+          dart run flutter_launcher_icons
+          flutter build ios --release --no-codesign --obfuscate --split-debug-info=build/symbols \
+            --build-number=${{ github.run_number }}
+
+      - name: Assinar e enviar para o TestFlight
+        run: |
+          mkdir -p ~/private_keys
+          echo "$ASC_KEY_P8" > ~/private_keys/AuthKey_$ASC_KEY_ID.p8
+          AUTH="-allowProvisioningUpdates -authenticationKeyPath $HOME/private_keys/AuthKey_$ASC_KEY_ID.p8 -authenticationKeyID $ASC_KEY_ID -authenticationKeyIssuerID $ASC_ISSUER_ID"
+          xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner -configuration Release \
+            -archivePath build/Runner.xcarchive -destination 'generic/platform=iOS' \
+            DEVELOPMENT_TEAM=$TEAM_ID CODE_SIGN_STYLE=Automatic $AUTH archive
+          cat > build/ExportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>signingStyle</key><string>automatic</string>
+          </dict></plist>
+          PLIST
+          xcodebuild -exportArchive -archivePath build/Runner.xcarchive \
+            -exportOptionsPlist build/ExportOptions.plist -exportPath build/ipa $AUTH
+          rm -f ~/private_keys/AuthKey_$ASC_KEY_ID.p8

@@ -1,6 +1,6 @@
 # Termos de Utilização do FINTRACK
 
-Última atualização: 13 de novembro de 2026
+Última atualização: 14 de novembro de 2026
 
 Ao usar o FINTRACK, aceita estes termos.
 
@@ -17,7 +17,7 @@ Uma ferramenta de **registo e organização** das suas finanças pessoais. Os mo
 ## A sua responsabilidade
 
 - A exatidão dos valores depende dos registos que faz. Recomendamos comparar regularmente com os extratos do seu banco.
-- Guarde o seu PIN e a palavra-passe das cópias de segurança. Sem eles, os dados cifrados não podem ser recuperados.
+- Guarde o seu PIN, a palavra-passe das cópias de segurança e, se tiver conta, o **código de recuperação**. Por causa da cifra ponta-a-ponta, sem eles os dados cifrados não podem ser recuperados, nem por nós.
 - Mantenha uma cópia de segurança atualizada: se perder ou trocar de telemóvel, é ela que permite recuperar os dados.
 
 ## Estimativas
@@ -26,7 +26,12 @@ Valores marcados como **estimativa** (por exemplo, a previsão de consumo de um 
 
 ## Planos e pagamentos
 
-As funções essenciais e toda a componente de segurança são gratuitas. Funções avançadas e de inteligência artificial poderão fazer parte de um plano Premium, com preços e condições apresentados antes de qualquer compra, através da Google Play ou da App Store.
+- As funções essenciais e toda a componente de segurança (PIN, biometria, cifra, AI Guard, cópias de segurança e sincronização) são **gratuitas**.
+- O **FINTRACK Premium** inclui o "Pergunte ao FINTRACK", o pulso financeiro, as tendências e observações, o Smart Entry e os relatórios em PDF.
+- Cada instalação tem uma **experiência grátis de 14 dias** com todas as funções Premium.
+- A subscrição (mensal ou anual) é feita na Google Play ou na App Store, com o preço apresentado pela loja antes da compra. **Renova automaticamente** até a cancelar nas subscrições da loja; o cancelamento produz efeito no fim do período pago.
+- A subscrição fica ligada à sua conta FINTRACK e é confirmada pelo nosso servidor junto da loja.
+- Reembolsos seguem as regras da Google Play ou da App Store.
 
 ## Limitação de responsabilidade
 

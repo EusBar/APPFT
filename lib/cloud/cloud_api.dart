@@ -64,6 +64,13 @@ class RemoteDevice {
   final DateTime lastSeen;
 }
 
+/// Subscrição Premium confirmada pelo servidor junto da loja.
+class RemoteSubscription {
+  const RemoteSubscription({required this.productId, required this.expiresAt});
+  final String productId;
+  final DateTime expiresAt;
+}
+
 class RemoteVault {
   const RemoteVault(this.passwordWrap, this.recoveryWrap);
   final String passwordWrap;
@@ -100,6 +107,14 @@ abstract interface class CloudApi {
   Future<List<RemoteRecord>> pull(CloudSession session, {DateTime? since});
   Future<void> push(CloudSession session, List<RemoteRecord> records);
   Future<void> deleteAccount(CloudSession session);
+
+  /// Subscrição guardada no servidor para esta conta (`null` sem nenhuma).
+  Future<RemoteSubscription?> subscription(CloudSession session);
+
+  /// Pede ao servidor que confirme a compra na loja. `null` se a loja não a
+  /// confirmar; [CloudException] `not_configured` se o servidor ainda não
+  /// estiver ligado à loja.
+  Future<RemoteSubscription?> verifyPurchase(CloudSession session, {required String platform, required String data});
 }
 
 /// Cliente HTTP direto para o Supabase (Auth + REST), sem SDK pesado.
@@ -392,6 +407,38 @@ class HttpCloudApi implements CloudApi {
         ));
     _check(r);
   }
+
+  @override
+  Future<RemoteSubscription?> subscription(CloudSession session) async {
+    final r = await _send(() => _client.get(
+          _u('/rest/v1/subscriptions', {'select': 'product_id,expires_at'}),
+          headers: _headers(session),
+        ));
+    _check(r);
+    final rows = (jsonDecode(r.body) as List).cast<Map<String, dynamic>>();
+    if (rows.isEmpty) return null;
+    return RemoteSubscription(
+      productId: rows.first['product_id'] as String,
+      expiresAt: DateTime.parse(rows.first['expires_at'] as String),
+    );
+  }
+
+  @override
+  Future<RemoteSubscription?> verifyPurchase(CloudSession session, {required String platform, required String data}) async {
+    final r = await _send(() => _client.post(
+          _u('/functions/v1/verify-purchase'),
+          headers: _headers(session),
+          body: jsonEncode({'platform': platform, 'data': data}),
+        ));
+    if (r.statusCode == 503) throw const CloudException('Loja ainda não ligada ao servidor.', code: 'not_configured');
+    _check(r);
+    final body = jsonDecode(r.body) as Map<String, dynamic>;
+    if (body['active'] != true) return null;
+    return RemoteSubscription(
+      productId: body['productId'] as String,
+      expiresAt: DateTime.parse(body['expiresAt'] as String),
+    );
+  }
 }
 
 /// Nuvem em memória para testes: aplica as mesmas regras do servidor
@@ -543,5 +590,30 @@ class MemoryCloudApi implements CloudApi {
     records.remove(s.userId);
     vaults.remove(s.userId);
     users.removeWhere((_, u) => u.$1 == s.userId);
+  }
+
+  /// Subscrições guardadas por utilizador; `storeConfigured = false` imita o
+  /// servidor antes de haver chaves das lojas.
+  final Map<String, RemoteSubscription> subscriptions = {};
+  bool storeConfigured = true;
+
+  @override
+  Future<RemoteSubscription?> subscription(CloudSession s) async {
+    _net();
+    return subscriptions[s.userId];
+  }
+
+  @override
+  Future<RemoteSubscription?> verifyPurchase(CloudSession s, {required String platform, required String data}) async {
+    _net();
+    if (!storeConfigured) throw const CloudException('Loja ainda não ligada ao servidor.', code: 'not_configured');
+    if (!data.startsWith('valid:')) return null;
+    final productId = data.substring(6);
+    final sub = RemoteSubscription(
+      productId: productId,
+      expiresAt: DateTime.now().add(Duration(days: productId.contains('yearly') ? 365 : 30)),
+    );
+    subscriptions[s.userId] = sub;
+    return sub;
   }
 }
