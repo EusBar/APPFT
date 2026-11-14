@@ -41,7 +41,7 @@ pelo projeto. O código, o servidor e a compilação já estão preparados.
 
 - [x] Autorização para usar as 5 fotografias de Angola (confirmada pelo responsável).
 - [ ] Decidir os preços do Premium (mensal e anual).
-- [ ] Ativar o GitHub Pages (Settings → Pages → ramo principal, pasta `/docs`). Endereços:
+- [x] GitHub Pages ativo (confirmado pelo responsável). Endereços:
   - Política de privacidade: https://eusbar.github.io/APPFT/privacidade.html
   - Termos de utilização: https://eusbar.github.io/APPFT/termos.html
 - [ ] Fazer uma compra de teste em cada loja e confirmar que o Premium abre.

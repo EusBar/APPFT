@@ -19,6 +19,7 @@ Atualizado: 14 de novembro de 2026 · Versão **1.0.0+30** · Ramo principal: `c
 ## Pendente (depende do responsável) — ver `docs/LANCAMENTO.md`
 - Contas Google Play e Apple Developer; preços do Premium; Supabase Pro no lançamento.
 - Fotografias de Angola: autorizadas.
+- GitHub Pages: ativo.
 
 ## Como se trabalha neste projeto
 - O responsável usa só o telemóvel e escreve em português (Angola); respostas em português,
