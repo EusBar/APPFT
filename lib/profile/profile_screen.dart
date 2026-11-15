@@ -5,15 +5,20 @@ import 'package:file_picker/file_picker.dart' show FilePicker, FileType;
 import 'package:fintrack_core/fintrack_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image/image.dart' as img;
 
 import '../data/local_store.dart';
 import '../design/tokens.dart';
 import '../privacy/consent.dart';
 import '../security/session.dart';
 
-/// Reduz uma fotografia a um quadrado de [size] px (corte central), em PNG.
-/// A original nunca é guardada.
-Future<Uint8List> squareThumbnail(Uint8List bytes, {int size = 256}) async {
+/// Fotografias acima disto são refeitas (versões antigas guardavam PNG).
+const photoMaxBytes = 40000;
+
+/// Reduz uma fotografia a um quadrado de [size] px (corte central), em JPEG
+/// leve (~20 KB): nítido no avatar e barato na nuvem. A original nunca é
+/// guardada.
+Future<Uint8List> squareThumbnail(Uint8List bytes, {int size = 224}) async {
   final codec = await ui.instantiateImageCodec(bytes);
   final image = (await codec.getNextFrame()).image;
   final side = image.width < image.height ? image.width : image.height;
@@ -31,10 +36,30 @@ Future<Uint8List> squareThumbnail(Uint8List bytes, {int size = 256}) async {
     Paint()..filterQuality = FilterQuality.high,
   );
   final out = await recorder.endRecording().toImage(size, size);
-  final data = await out.toByteData(format: ui.ImageByteFormat.png);
+  final data = await out.toByteData(format: ui.ImageByteFormat.rawRgba);
   image.dispose();
   out.dispose();
-  return data!.buffer.asUint8List();
+  final rgba = img.Image.fromBytes(
+    width: size,
+    height: size,
+    bytes: data!.buffer,
+    numChannels: 4,
+    order: img.ChannelOrder.rgba,
+  );
+  return Uint8List.fromList(img.encodeJpg(rgba, quality: 80));
+}
+
+/// Fotografias antigas (PNG pesado) passam a JPEG leve. Depois a
+/// sincronização envia a versão nova e o espaço na nuvem diminui.
+Future<void> shrinkProfilePhotoIfLarge(SessionController session, Profile? profile) async {
+  final photo = profile?.photo;
+  if (profile == null || photo == null || photo.length <= photoMaxBytes) return;
+  try {
+    final small = await squareThumbnail(photo);
+    if (small.length < photo.length) await session.updateProfile(profile.copyWith(photo: small));
+  } catch (_) {
+    // Imagem ilegível: fica como está.
+  }
 }
 
 /// Avatar com a fotografia do perfil ou as iniciais.

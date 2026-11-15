@@ -15,7 +15,7 @@ class Profile {
   /// Como prefere ser tratado (ex.: "EMBK"). Vazio = primeiro nome.
   final String? nickname;
 
-  /// Fotografia já reduzida (PNG), guardada na base cifrada.
+  /// Fotografia já reduzida (JPEG ~20 KB), guardada na base cifrada.
   final Uint8List? photo;
 
   /// Nome usado na saudação.

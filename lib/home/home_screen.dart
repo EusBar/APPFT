@@ -51,6 +51,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // Depois de desbloquear: lê a sessão da nuvem e sincroniza; depois, a
     // cada 10 minutos enquanto o app está aberto.
     Future.microtask(() async {
+      await shrinkProfilePhotoIfLarge(ref.read(sessionProvider.notifier), ref.read(sessionProvider).profile);
       final cloud = ref.read(cloudProvider.notifier);
       await cloud.load();
       if (mounted && ref.read(cloudProvider).signedIn) await cloud.syncNow();
