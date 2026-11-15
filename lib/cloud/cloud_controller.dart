@@ -9,6 +9,7 @@ import '../data/local_store.dart';
 import '../finance/finance_data.dart';
 import '../notifications/reminders.dart';
 import '../security/pin_vault.dart';
+import '../security/secret_store.dart';
 import '../security/session.dart';
 import 'cloud_api.dart';
 import 'cloud_crypto.dart';
@@ -159,7 +160,61 @@ class CloudController extends Notifier<CloudState> {
     _pendingPassword = null;
     _pendingSession = null;
     _pendingSignUp = false;
+    unawaited(ref.read(secretStoreProvider).delete(_kPendingCode).catchError((_) {}));
   }
+
+  // --- Código por e-mail que sobrevive ao fecho do app ------------------------
+  //
+  // Para ver o código, a pessoa sai para o Gmail; o Android pode fechar o
+  // FINTRACK entretanto. O pedido em curso fica no cofre do sistema
+  // (Keystore/Keychain) durante a validade do código e apaga-se no fim.
+
+  static const _kPendingCode = 'cloud.pendingCode';
+  static const pendingCodeTtl = Duration(minutes: 15);
+
+  Future<void> _savePending() async {
+    await ref.read(secretStoreProvider).write(
+          _kPendingCode,
+          jsonEncode({
+            'e': _pendingEmail,
+            'p': _pendingPassword,
+            's': _pendingSignUp,
+            't': DateTime.now().millisecondsSinceEpoch,
+          }),
+        );
+  }
+
+  /// E-mail do pedido de código guardado (ainda válido), sem o abrir.
+  static Future<String?> peekPendingCode(SecretStore secrets) async {
+    final raw = await secrets.read(_kPendingCode);
+    if (raw == null) return null;
+    try {
+      final j = jsonDecode(raw) as Map<String, dynamic>;
+      final at = DateTime.fromMillisecondsSinceEpoch(j['t'] as int);
+      if (DateTime.now().difference(at) > pendingCodeTtl) {
+        await secrets.delete(_kPendingCode);
+        return null;
+      }
+      return j['e'] as String;
+    } catch (_) {
+      await secrets.delete(_kPendingCode);
+      return null;
+    }
+  }
+
+  /// Retoma o pedido guardado. Devolve o e-mail, ou `null` se já não houver.
+  Future<String?> restorePendingCode() async {
+    final secrets = ref.read(secretStoreProvider);
+    if (await peekPendingCode(secrets) == null) return null;
+    final j = jsonDecode((await secrets.read(_kPendingCode))!) as Map<String, dynamic>;
+    _pendingEmail = j['e'] as String;
+    _pendingPassword = j['p'] as String;
+    _pendingSignUp = j['s'] as bool;
+    return _pendingEmail;
+  }
+
+  /// A pessoa desistiu de confirmar o código.
+  void cancelPendingCode() => _clearPending();
 
   // --- Criar conta e entrar ---------------------------------------------------
 
@@ -169,7 +224,10 @@ class CloudController extends Notifier<CloudState> {
     _pendingEmail = e;
     _pendingPassword = password;
     _pendingSignUp = true;
-    if (session == null) return NeedsEmailCode(e);
+    if (session == null) {
+      await _savePending();
+      return NeedsEmailCode(e);
+    }
     return _finish(session);
   }
 
@@ -190,6 +248,7 @@ class CloudController extends Notifier<CloudState> {
         _pendingSession = session;
         return NeedsRecoveryInstead(e);
       }
+      await _savePending();
       return NeedsEmailCode(e);
     }
     return _finish(session);
@@ -546,3 +605,7 @@ class CloudController extends Notifier<CloudState> {
 }
 
 final cloudProvider = NotifierProvider<CloudController, CloudState>(CloudController.new);
+
+/// E-mail de um pedido de código retomado depois de o app ter sido fechado
+/// (o ecrã do código abre logo). `null` sem pedido pendente.
+final pendingCodeProvider = StateProvider<String?>((ref) => null);

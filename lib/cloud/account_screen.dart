@@ -12,7 +12,7 @@ import 'cloud_controller.dart';
 
 /// Conta FINTRACK: criar, entrar, sincronizar, terminar sessão, eliminar.
 class AccountScreen extends ConsumerStatefulWidget {
-  const AccountScreen({super.key, this.entry = false, this.startCreate = false});
+  const AccountScreen({super.key, this.entry = false, this.startCreate = false, this.resume = false});
 
   /// Ecrã de entrada depois de terminar a sessão: começa em "Entrar" e
   /// oferece começar sem conta.
@@ -20,6 +20,9 @@ class AccountScreen extends ConsumerStatefulWidget {
 
   /// No modo de entrada, abre já em "Criar conta".
   final bool startCreate;
+
+  /// Retomar um pedido de código guardado (o app foi fechado entretanto).
+  final bool resume;
 
   @override
   ConsumerState<AccountScreen> createState() => _AccountScreenState();
@@ -39,6 +42,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     super.initState();
     _create = !widget.entry || widget.startCreate;
     ref.read(cloudProvider.notifier).load();
+    if (widget.resume) WidgetsBinding.instance.addPostFrameCallback((_) => _resume());
   }
 
   @override
@@ -65,12 +69,32 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     final invalid = _validate();
     setState(() => _error = invalid);
     if (invalid != null) return;
+    final cloud = ref.read(cloudProvider.notifier);
+    await _runFlow(() => _create ? cloud.signUp(_email.text, _password.text) : cloud.signIn(_email.text, _password.text));
+  }
+
+  /// O app foi fechado enquanto a pessoa via o código no e-mail: retoma o
+  /// pedido e abre logo a caixa do código.
+  Future<void> _resume() async {
+    final email = await ref.read(cloudProvider.notifier).restorePendingCode();
+    if (!mounted) return;
+    if (email == null) {
+      ref.read(pendingCodeProvider.notifier).state = null;
+      return;
+    }
+    setState(() {
+      _create = false;
+      _email.text = email;
+    });
+    await _runFlow(() async => NeedsEmailCode(email));
+    if (mounted) ref.read(pendingCodeProvider.notifier).state = null;
+  }
+
+  Future<void> _runFlow(Future<CloudStep?> Function() start) async {
     setState(() => _busy = true);
     final cloud = ref.read(cloudProvider.notifier);
     try {
-      CloudStep? step = _create
-          ? await cloud.signUp(_email.text, _password.text)
-          : await cloud.signIn(_email.text, _password.text);
+      CloudStep? step = await start();
       while (step is NeedsEmailCode || step is NeedsRecoveryInstead) {
         if (!mounted) return;
         setState(() => _busy = false); // à espera do utilizador, não do app
@@ -89,7 +113,10 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
           continue;
         }
         final code = await _askEmailCode((step as NeedsEmailCode).email);
-        if (code == null) return;
+        if (code == null) {
+          cloud.cancelPendingCode();
+          return;
+        }
         if (mounted) setState(() => _busy = true);
         try {
           step = await cloud.confirmEmailCode(code);

@@ -692,6 +692,43 @@ void main() {
     expect(find.text('Olá, Eusébio'), findsOneWidget);
   });
 
+  testWidgets('o pedido de código por e-mail sobrevive ao fecho do app', (tester) async {
+    cloud.confirmation = true;
+    await setUpUser(tester);
+    await tester.tap(find.byTooltip('Definições'));
+    await tester.pumpAndSettle();
+    await tapText(tester, 'Conta e sincronização');
+    await tester.enterText(find.byKey(const Key('cloud-email')), 'eu@exemplo.ao');
+    await tester.enterText(find.byKey(const Key('cloud-password')), 'Segura12345');
+    await tester.enterText(find.byKey(const Key('cloud-confirm')), 'Segura12345');
+    final submit = find.widgetWithText(FilledButton, 'Criar conta');
+    await tester.ensureVisible(submit);
+    await tester.pumpAndSettle();
+    await tester.tap(submit);
+    await tester.pumpAndSettle();
+    expect(find.text('Código enviado por e-mail'), findsOneWidget);
+    expect(secrets.values.containsKey('cloud.pendingCode'), isTrue);
+
+    // A pessoa vai ao Gmail e o Android fecha o FINTRACK.
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+    await pumpApp(tester);
+    await typePin(tester, '482917');
+
+    // Volta e encontra logo a caixa do código.
+    expect(find.text('Código enviado por e-mail'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('email-code')), '123456');
+    await tester.tap(find.text('Confirmar'));
+    await tester.pumpAndSettle();
+    final shown = tester.widget<SelectableText>(find.byKey(const Key('recovery-code'))).data!;
+    await tester.enterText(find.byKey(const Key('recovery-check')), shown.replaceAll(' – ', '-').split('-').last);
+    await tapText(tester, 'Guardei o código');
+
+    expect(data.settings['cloud.email'], 'eu@exemplo.ao');
+    expect(secrets.values.containsKey('cloud.pendingCode'), isFalse, reason: 'apagado no fim');
+    expect(find.text('Olá, Eusébio'), findsOneWidget);
+  });
+
   testWidgets('FINTRACK AI: Smart Entry prepara, o utilizador revê e grava', (tester) async {
     await setUpUser(tester);
     await tester.tap(find.text('IA'));

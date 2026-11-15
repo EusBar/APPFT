@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'cloud/welcome_screen.dart';
+import 'cloud/account_screen.dart';
 import 'cloud/cloud_controller.dart';
 import 'design/tokens.dart';
 import 'home/home_screen.dart';
@@ -33,6 +34,10 @@ class _FintrackAppState extends ConsumerState<FintrackApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Pedido de código por e-mail em curso quando o app foi fechado?
+    CloudController.peekPendingCode(ref.read(secretStoreProvider)).then((email) {
+      if (email != null && mounted) ref.read(pendingCodeProvider.notifier).state = email;
+    });
   }
 
   @override
@@ -62,6 +67,7 @@ class _FintrackAppState extends ConsumerState<FintrackApp>
   @override
   Widget build(BuildContext context) {
     final status = ref.watch(sessionProvider.select((s) => s.status));
+    final resumeCode = ref.watch(pendingCodeProvider);
     final signedOut = ref.watch(sessionProvider.select((s) => s.signedOut));
     final introDone = ref.watch(sessionProvider.select((s) => s.introDone));
 
@@ -88,6 +94,9 @@ class _FintrackAppState extends ConsumerState<FintrackApp>
       ),
       home: switch (status) {
         SessionStatus.loading => const _LoadingScreen(),
+        // Volta do e-mail: abre logo a caixa do código (depois do PIN, se houver).
+        SessionStatus.needsPin || SessionStatus.onboarding || SessionStatus.unlocked when resumeCode != null =>
+          AccountScreen(key: ValueKey('resume-$resumeCode'), entry: status != SessionStatus.unlocked, resume: true),
         SessionStatus.needsPin when !introDone => const WelcomeScreen(),
         SessionStatus.needsPin => const CreatePinScreen(),
         SessionStatus.locked => const LockScreen(),
