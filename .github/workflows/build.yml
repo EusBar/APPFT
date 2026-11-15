@@ -3,8 +3,6 @@ name: Build
 on:
   push:
     branches: ["**"]
-    # Uma etiqueta de versão (ex.: v1.0.0) publica o APK numa Release pública.
-    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
@@ -81,18 +79,33 @@ jobs:
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
 
-      - name: Publicar a versão (link público de transferência)
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: cp build/app/outputs/flutter-apk/app-release.apk build/FINTRACK.apk
+      # Cada versão nova do pubspec (no ramo principal) vira uma Release pública
+      # com o APK; releases/latest/download/FINTRACK.apk aponta sempre para ela.
+      - name: Verificar se esta versão já foi publicada
+        id: release
+        if: github.ref_name == github.event.repository.default_branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(grep -E '^version:' pubspec.yaml | sed -E 's/version: *([^+]+).*/\1/')
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          if gh release view "v$version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "new=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "new=true" >> "$GITHUB_OUTPUT"
+            cp build/app/outputs/flutter-apk/app-release.apk build/FINTRACK.apk
+          fi
 
       - uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: steps.release.outputs.new == 'true'
         with:
-          name: FINTRACK ${{ github.ref_name }}
+          tag_name: ${{ steps.release.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: FINTRACK ${{ steps.release.outputs.tag }}
           files: build/FINTRACK.apk
           make_latest: true
           body: |
-            **FINTRACK ${{ github.ref_name }} para Android** (7.0 ou mais recente).
+            **FINTRACK ${{ steps.release.outputs.tag }} para Android** (7.0 ou mais recente).
 
             Transferir: toque em **FINTRACK.apk** abaixo, abra o ficheiro e permita
             "instalar aplicações desta fonte" quando o Android perguntar.
