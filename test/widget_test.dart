@@ -638,6 +638,60 @@ void main() {
     expect(cloud.deviceRows[user], hasLength(2));
   });
 
+  testWidgets('e-mail indisponível: entrar num telemóvel novo com o código de recuperação', (tester) async {
+    await setUpUser(tester);
+    await tester.tap(find.byTooltip('Definições'));
+    await tester.pumpAndSettle();
+    await tapText(tester, 'Conta e sincronização');
+    await tester.enterText(find.byKey(const Key('cloud-email')), 'eu@exemplo.ao');
+    await tester.enterText(find.byKey(const Key('cloud-password')), 'Segura12345');
+    await tester.enterText(find.byKey(const Key('cloud-confirm')), 'Segura12345');
+    final submit = find.widgetWithText(FilledButton, 'Criar conta');
+    await tester.ensureVisible(submit);
+    await tester.pumpAndSettle();
+    await tester.tap(submit);
+    await tester.pumpAndSettle();
+    final code = tester.widget<SelectableText>(find.byKey(const Key('recovery-code'))).data!.replaceAll(' – ', '-');
+    await tester.enterText(find.byKey(const Key('recovery-check')), code.split('-').last);
+    await tapText(tester, 'Guardei o código');
+
+    // Telemóvel novo, e o serviço de e-mail em baixo.
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tapText(tester, 'Apagar tudo e repor');
+    await tester.tap(find.widgetWithText(FilledButton, 'Apagar tudo'));
+    await tester.pumpAndSettle();
+    cloud.confirmation = true;
+    cloud.emailDown = true;
+    final signIn = find.byKey(const Key('welcome-signin'));
+    await tester.ensureVisible(signIn);
+    await tester.pumpAndSettle();
+    await tester.tap(signIn);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('cloud-email')), 'eu@exemplo.ao');
+    await tester.enterText(find.byKey(const Key('cloud-password')), 'Segura12345');
+    final enter = find.widgetWithText(FilledButton, 'Entrar');
+    await tester.ensureVisible(enter);
+    await tester.pumpAndSettle();
+    await tester.tap(enter);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Não conseguimos enviar o código'), findsOneWidget);
+
+    // Código errado primeiro, depois o certo.
+    await tester.enterText(find.byKey(const Key('recovery-input')), 'AAAA-BBBB-CCCC-DDDD');
+    await tester.tap(find.text('Continuar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Código de recuperação errado.'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('recovery-input')), code);
+    await tester.tap(find.text('Continuar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Crie um PIN de 6 dígitos'), findsOneWidget);
+    await typePin(tester, '482917');
+    await typePin(tester, '482917');
+    expect(find.text('Olá, Eusébio'), findsOneWidget);
+  });
+
   testWidgets('FINTRACK AI: Smart Entry prepara, o utilizador revê e grava', (tester) async {
     await setUpUser(tester);
     await tester.tap(find.text('IA'));

@@ -86,6 +86,13 @@ class NeedsEmailCode extends CloudStep {
   final String email;
 }
 
+/// O e-mail com o código não pôde ser enviado: confirma-se com o código de
+/// recuperação (prova igualmente forte de que a conta é desta pessoa).
+class NeedsRecoveryInstead extends CloudStep {
+  const NeedsRecoveryInstead(this.email);
+  final String email;
+}
+
 /// Sessão aberta. [recoveryCode] só vem quando foi criada uma chave nova
 /// (tem de ser mostrado e guardado pelo utilizador).
 class CloudReady extends CloudStep {
@@ -176,7 +183,13 @@ class CloudController extends Notifier<CloudState> {
     final verified = store == null ? null : await store.getSetting(_kVerified);
     if (await _api.emailConfirmationRequired() && verified != e) {
       // Dispositivo novo: prova de acesso ao e-mail antes de abrir os dados.
-      await _api.sendLoginCode(e);
+      try {
+        await _api.sendLoginCode(e);
+      } on CloudException catch (x) {
+        if (x.code != 'email_failed') rethrow;
+        _pendingSession = session;
+        return NeedsRecoveryInstead(e);
+      }
       return NeedsEmailCode(e);
     }
     return _finish(session);
@@ -187,6 +200,22 @@ class CloudController extends Notifier<CloudState> {
     final email = _pendingEmail;
     if (email == null) throw const CloudException('Recomece o início de sessão.');
     final session = await _api.verifyCode(email, code, type: _pendingSignUp ? 'signup' : 'email');
+    await _store?.setSetting(_kVerified, email);
+    return _finish(session);
+  }
+
+  /// Alternativa ao código por e-mail: o código de recuperação da conta.
+  Future<CloudStep> confirmWithRecoveryCode(String code) async {
+    final session = _pendingSession;
+    final email = _pendingEmail;
+    if (session == null || email == null) throw const CloudException('Recomece o início de sessão.');
+    final vault = await _api.getVault(session);
+    if (vault == null) throw const CloudException('A conta não tem chave guardada.');
+    try {
+      await KeyWrap.unwrap(vault.recoveryWrap, RecoveryCode.normalize(code), deriver: _deriver);
+    } on FormatException {
+      throw const CloudException('Código de recuperação errado.', code: 'bad_recovery');
+    }
     await _store?.setSetting(_kVerified, email);
     return _finish(session);
   }

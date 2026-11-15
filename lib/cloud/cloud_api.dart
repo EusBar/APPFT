@@ -159,6 +159,13 @@ class HttpCloudApi implements CloudApi {
       code = (j['error_code'] ?? j['code'] ?? j['error'] ?? '').toString();
       msg = (j['msg'] ?? j['message'] ?? j['error_description'] ?? '').toString();
     } catch (_) {}
+    // O servidor não conseguiu enviar o e-mail (problema do serviço de envio).
+    if (msg.toLowerCase().contains('error sending')) {
+      return const CloudException(
+        'Não foi possível enviar o e-mail com o código neste momento.',
+        code: 'email_failed',
+      );
+    }
     final m = switch (code) {
       'invalid_credentials' || 'invalid_grant' => 'E-mail ou palavra-passe errados.',
       'user_already_exists' || 'email_exists' => 'Já existe uma conta com este e-mail. Entre em vez de criar.',
@@ -468,9 +475,13 @@ class MemoryCloudApi implements CloudApi {
     return _s(email);
   }
 
+  /// Imita uma falha do serviço de e-mail.
+  bool emailDown = false;
+
   @override
   Future<void> sendLoginCode(String email) async {
     _net();
+    if (emailDown) throw const CloudException('Não foi possível enviar o e-mail.', code: 'email_failed');
     if (!users.containsKey(email)) throw const CloudException('Conta desconhecida.', code: 'user_not_found');
     sentCodes[email] = '654321';
   }

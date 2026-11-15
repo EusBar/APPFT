@@ -71,10 +71,24 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
       CloudStep? step = _create
           ? await cloud.signUp(_email.text, _password.text)
           : await cloud.signIn(_email.text, _password.text);
-      while (step is NeedsEmailCode) {
+      while (step is NeedsEmailCode || step is NeedsRecoveryInstead) {
         if (!mounted) return;
         setState(() => _busy = false); // à espera do utilizador, não do app
-        final code = await _askEmailCode(step.email);
+        if (step is NeedsRecoveryInstead) {
+          final rc = await _askRecoveryCode(
+            message: 'Não conseguimos enviar o código por e-mail neste momento. Para confirmar que é '
+                'você, escreva o código de recuperação que guardou ao criar a conta.',
+          );
+          if (rc == null) return;
+          if (mounted) setState(() => _busy = true);
+          try {
+            step = await cloud.confirmWithRecoveryCode(rc);
+          } on CloudException catch (e) {
+            if (mounted) setState(() => _error = e.message);
+          }
+          continue;
+        }
+        final code = await _askEmailCode((step as NeedsEmailCode).email);
         if (code == null) return;
         if (mounted) setState(() => _busy = true);
         try {
@@ -174,7 +188,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     );
   }
 
-  Future<String?> _askRecoveryCode() {
+  Future<String?> _askRecoveryCode({String? message}) {
     final controller = TextEditingController();
     return showDialog<String>(
       context: context,
@@ -183,9 +197,10 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'A palavra-passe mudou desde que os dados foram cifrados. Escreva o código de '
-              'recuperação que guardou ao criar a conta.',
+            Text(
+              message ??
+                  'A palavra-passe mudou desde que os dados foram cifrados. Escreva o código de '
+                      'recuperação que guardou ao criar a conta.',
             ),
             TextField(
               key: const Key('recovery-input'),
