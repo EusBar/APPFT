@@ -101,6 +101,8 @@ objetivos e Kixikila, com inteligência no próprio telemóvel e dados cifrados.
 <p class="muted">Última versão, Android 7.0 ou mais recente. Ao abrir o ficheiro, permita
 "instalar aplicações desta fonte". Em breve na Google Play e na App Store.</p>
 <ul>
+<li><a href="https://youtube.com/@fintrack-d4d">Vídeos no YouTube</a></li>
+<li><a href="marketing/FINTRACK_Descubra.pdf">Descubra o FINTRACK (PDF)</a></li>
 <li><a href="marketing/FINTRACK_Manual.pdf">Manual de uso (PDF)</a></li>
 <li><a href="marketing/FINTRACK_Apresentacao.pdf">Apresentação do FINTRACK (PDF)</a></li>
 <li><a href="privacidade.html">Política de privacidade</a></li>
