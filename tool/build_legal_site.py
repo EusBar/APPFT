@@ -102,9 +102,7 @@ objetivos e Kixikila, com inteligência no próprio telemóvel e dados cifrados.
 "instalar aplicações desta fonte". Em breve na Google Play e na App Store.</p>
 <ul>
 <li><a href="https://youtube.com/@fintrack-d4d">Vídeos no YouTube</a></li>
-<li><a href="marketing/FINTRACK_Descubra.pdf">Descubra o FINTRACK (PDF)</a></li>
-<li><a href="marketing/FINTRACK_Manual.pdf">Manual de uso (PDF)</a></li>
-<li><a href="marketing/FINTRACK_Apresentacao.pdf">Apresentação do FINTRACK (PDF)</a></li>
+<li><a href="marketing/FINTRACK_Completo.pdf">Descubra o FINTRACK e guia de uso (PDF)</a></li>
 <li><a href="privacidade.html">Política de privacidade</a></li>
 <li><a href="termos.html">Termos de utilização</a></li>
 </ul>
