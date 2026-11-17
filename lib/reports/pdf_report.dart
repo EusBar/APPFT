@@ -218,7 +218,12 @@ Future<Uint8List> buildReportPdf({
           pw.Padding(
             padding: const pw.EdgeInsets.only(bottom: 3),
             child: pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-              t('•  ', st(8.5)),
+              pw.Container(
+                width: 3.5,
+                height: 3.5,
+                margin: const pw.EdgeInsets.only(top: 3.5, right: 6),
+                decoration: const pw.BoxDecoration(color: _text, shape: pw.BoxShape.circle),
+              ),
               pw.Expanded(child: pw.RichText(text: pw.TextSpan(style: st(8.5), children: spans))),
             ]),
           ),
@@ -504,6 +509,7 @@ Future<Uint8List> buildReportPdf({
             )
           : pw.Container(
         height: 74,
+        alignment: pw.Alignment.centerLeft,
         margin: const pw.EdgeInsets.only(bottom: 16),
         child: pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
           pw.Container(
@@ -514,12 +520,12 @@ Future<Uint8List> buildReportPdf({
             child: pw.Text('F', style: st(13, bold: true)),
           ),
           pw.SizedBox(width: 8),
-          pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+          pw.Column(mainAxisSize: pw.MainAxisSize.min, crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
             pw.Text('FINTRACK', style: st(12, color: PdfColors.white, bold: true, spacing: 2.5)),
             t('O seu dinheiro, claro e seguro.', st(7, color: const PdfColor.fromInt(0xFFCCFBF1))),
           ]),
           pw.Spacer(),
-          pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
+          pw.Column(mainAxisSize: pw.MainAxisSize.min, crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
             t('Relatório financeiro · $ownerName', st(9, color: PdfColors.white, bold: true)),
             t(periodText, st(7.5, color: PdfColors.white)),
             t(
