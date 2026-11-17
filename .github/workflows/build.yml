@@ -70,12 +70,6 @@ jobs:
       - name: Testes
         run: flutter test
 
-      - name: Exemplo do relatório (dados fictícios) em texto, para conferir
-        run: |
-          if [ -f build/relatorio_exemplo.pdf ]; then
-            echo "RELATORIO_B64_INICIO"; base64 -w 0 build/relatorio_exemplo.pdf | fold -w 3000; echo; echo "RELATORIO_B64_FIM"
-          fi
-
       - uses: actions/upload-artifact@v4
         with:
           name: relatorio-exemplo
