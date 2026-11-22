@@ -32,7 +32,9 @@ class BudgetsView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final now = DateTime.now();
-    final month = DateTime(now.year, now.month);
+    final cycle = monthCycleOf(ProviderScope.containerOf(context));
+    final period = cycle.of(now);
+    final month = DateTime(period.year, period.month);
     final budgets = [...data.budgets]..sort((a, b) => a.isGlobal ? -1 : b.isGlobal ? 1 : 0);
     if (budgets.isEmpty) {
       return TextPlate(
@@ -62,7 +64,7 @@ class BudgetsView extends StatelessWidget {
         for (final b in budgets)
           BudgetTile(
             data: data,
-            status: BudgetEngine.status(data.ledger, b, month: month, today: now),
+            status: BudgetEngine.status(data.ledger, b, month: month, today: now, cycle: cycle),
             discreet: discreet,
           ),
       ],
@@ -200,7 +202,11 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
           id: newId(),
           categoryId: _categoryId,
           amount: amount,
-          startMonth: DateTime(now.year, now.month),
+          // Começa no mês financeiro em curso (pode começar antes do dia 1).
+          startMonth: () {
+            final p = monthCycleOf(ProviderScope.containerOf(context)).of(now);
+            return DateTime(p.year, p.month);
+          }(),
           carryOver: _carry,
           createdAt: now,
         );

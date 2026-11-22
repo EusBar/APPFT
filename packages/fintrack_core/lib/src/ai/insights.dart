@@ -1,6 +1,7 @@
 import '../currency.dart';
 import '../ledger.dart';
 import '../money.dart';
+import '../month_cycle.dart';
 import '../movement.dart';
 
 /// Entradas e saídas de um mês, numa moeda.
@@ -31,8 +32,18 @@ class Insight {
 /// o livro-razão, por isso cada número é exato e verificável.
 class TrendsEngine {
   static DateTime _day(DateTime d) => DateTime(d.year, d.month, d.day);
-  static DateTime _monthStart(DateTime d, [int back = 0]) => DateTime(d.year, d.month - back, 1);
-  static DateTime _monthEnd(DateTime start) => DateTime(start.year, start.month + 1, 0);
+
+  /// Mês financeiro [back] meses antes do que contém [t].
+  static FinancialMonth _period(MonthCycle cycle, DateTime t, [int back = 0]) {
+    final cur = cycle.of(t);
+    return cycle.byLabel(cur.year, cur.month - back);
+  }
+
+  /// O mesmo dia relativo noutro período (ex.: 5.º dia), sem passar do fim.
+  static DateTime _sameDay(FinancialMonth p, int elapsed) {
+    final d = p.from.add(Duration(days: elapsed - 1));
+    return d.isAfter(p.to) ? p.to : d;
+  }
 
   /// Soma (em unidades mínimas) de entradas ou saídas entre duas datas.
   static int _sum(Ledger ledger, MovementKind kind, Currency cur, DateTime from, DateTime to, {String? categoryId}) {
@@ -78,15 +89,22 @@ class TrendsEngine {
   }
 
   /// Os últimos [count] meses (o atual até hoje), do mais antigo para o atual.
-  static List<MonthFlow> months(Ledger ledger, Currency currency, {required DateTime today, int count = 6}) {
+  static List<MonthFlow> months(
+    Ledger ledger,
+    Currency currency, {
+    required DateTime today,
+    int count = 6,
+    MonthCycle cycle = MonthCycle.calendar,
+  }) {
     final t = _day(today);
     return [
       for (var i = count - 1; i >= 0; i--)
         () {
-          final start = _monthStart(t, i);
-          final end = i == 0 ? t : _monthEnd(start);
+          final p = _period(cycle, t, i);
+          final start = p.from;
+          final end = i == 0 ? t : p.to;
           return MonthFlow(
-            month: start,
+            month: DateTime(p.year, p.month),
             income: Money(_sum(ledger, MovementKind.income, currency, start, end), currency),
             expense: Money(_sum(ledger, MovementKind.expense, currency, start, end), currency),
           );
@@ -100,19 +118,23 @@ class TrendsEngine {
     Currency currency, {
     required DateTime today,
     required String Function(String categoryId) categoryName,
+    MonthCycle cycle = MonthCycle.calendar,
   }) {
     final t = _day(today);
     final out = <Insight>[];
-    final start = _monthStart(t);
-    final daysInMonth = _monthEnd(start).day;
+    final period = _period(cycle, t);
+    final start = period.from;
+    final daysInMonth = period.days;
+    final elapsed = t.difference(start).inDays + 1;
     final spent = _sum(ledger, MovementKind.expense, currency, start, t);
     final earned = _sum(ledger, MovementKind.income, currency, start, t);
     String fmt(int minor) => Money(minor, currency).format();
 
     // 1. Ritmo face ao mesmo período do mês passado.
-    final prevStart = _monthStart(t, 1);
-    final prevEnd = _monthEnd(prevStart);
-    final prevSameDay = DateTime(prevStart.year, prevStart.month, t.day > prevEnd.day ? prevEnd.day : t.day);
+    final prev = _period(cycle, t, 1);
+    final prevStart = prev.from;
+    final prevEnd = prev.to;
+    final prevSameDay = _sameDay(prev, elapsed);
     final prevSpent = _sum(ledger, MovementKind.expense, currency, prevStart, prevSameDay);
     if (prevSpent > 0 && spent > 0) {
       final change = ((spent - prevSpent) * 100 / prevSpent).round();
@@ -121,19 +143,19 @@ class TrendsEngine {
           id: 'pace',
           tone: change > 0 ? InsightTone.warning : InsightTone.good,
           title: change > 0 ? 'Está a gastar $change% mais' : 'Está a gastar ${-change}% menos',
-          detail: 'Até dia ${t.day}: ${fmt(spent)} este mês, contra ${fmt(prevSpent)} no mesmo período do mês passado.',
+          detail: 'Até hoje: ${fmt(spent)} este mês, contra ${fmt(prevSpent)} no mesmo ponto do mês passado.',
         ));
       }
     }
 
     // 2. Projeção do mês ao ritmo atual (só com dias suficientes).
-    if (t.day >= 5 && spent > 0 && t.day < daysInMonth) {
-      final projected = spent * daysInMonth ~/ t.day;
+    if (elapsed >= 5 && spent > 0 && elapsed < daysInMonth) {
+      final projected = spent * daysInMonth ~/ elapsed;
       out.add(Insight(
         id: 'projection',
         tone: earned > 0 && projected > earned ? InsightTone.warning : InsightTone.info,
         title: 'Ao ritmo atual, o mês fecha em ${fmt(projected)}',
-        detail: 'Média de ${fmt(spent ~/ t.day)} por dia em saídas.'
+        detail: 'Média de ${fmt(spent ~/ elapsed)} por dia em saídas.'
             '${earned > 0 && projected > earned ? ' É mais do que as entradas do mês (${fmt(earned)}).' : ''}',
       ));
     }
@@ -143,8 +165,8 @@ class TrendsEngine {
     for (final (id, total) in current.take(6)) {
       var sum = 0, months = 0;
       for (var i = 1; i <= 3; i++) {
-        final s = _monthStart(t, i);
-        final v = _sum(ledger, MovementKind.expense, currency, s, _monthEnd(s), categoryId: id);
+        final s = _period(cycle, t, i);
+        final v = _sum(ledger, MovementKind.expense, currency, s.from, s.to, categoryId: id);
         if (v > 0) {
           sum += v;
           months++;
@@ -191,7 +213,7 @@ class TrendsEngine {
     }
 
     // 6. Sem entradas registadas este mês.
-    if (earned == 0 && spent > 0 && t.day >= 10) {
+    if (earned == 0 && spent > 0 && elapsed >= 10) {
       out.add(const Insight(
         id: 'noincome',
         tone: InsightTone.info,
@@ -226,18 +248,22 @@ class FinancialPulse {
     required DateTime today,
     required int availableMinor,
     List<int> budgetPercents = const [],
+    MonthCycle cycle = MonthCycle.calendar,
   }) {
     final t = DateTime(today.year, today.month, today.day);
+    final cur = TrendsEngine._period(cycle, t);
+    final prev = TrendsEngine._period(cycle, t, 1);
+    final elapsed = t.difference(cur.from).inDays + 1;
     if (!ledger.active().any((m) => m.kind != MovementKind.transfer && m.amount.currency == currency)) return null;
     var score = 0;
     final factors = <PulseFactor>[];
 
     // 1. Poupança (35): último mês completo com entradas, senão o atual.
-    var start = DateTime(t.year, t.month - 1, 1);
-    var end = DateTime(t.year, t.month, 0);
+    var start = prev.from;
+    var end = prev.to;
     var income = TrendsEngine._sum(ledger, MovementKind.income, currency, start, end);
     if (income == 0) {
-      start = DateTime(t.year, t.month, 1);
+      start = cur.from;
       end = t;
       income = TrendsEngine._sum(ledger, MovementKind.income, currency, start, end);
     }
@@ -259,11 +285,9 @@ class FinancialPulse {
     }
 
     // 3. Ritmo face ao mês passado (15).
-    final prevStart = DateTime(t.year, t.month - 1, 1);
-    final prevEnd = DateTime(t.year, t.month, 0);
-    final same = DateTime(prevStart.year, prevStart.month, t.day > prevEnd.day ? prevEnd.day : t.day);
-    final now = TrendsEngine._sum(ledger, MovementKind.expense, currency, DateTime(t.year, t.month, 1), t);
-    final before = TrendsEngine._sum(ledger, MovementKind.expense, currency, prevStart, same);
+    final same = TrendsEngine._sameDay(prev, elapsed);
+    final now = TrendsEngine._sum(ledger, MovementKind.expense, currency, cur.from, t);
+    final before = TrendsEngine._sum(ledger, MovementKind.expense, currency, prev.from, same);
     if (before == 0 || now <= before) {
       score += 15;
       factors.add(const PulseFactor('Gastos controlados', ok: true));

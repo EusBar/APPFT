@@ -220,7 +220,9 @@ class _MovementFormScreenState extends ConsumerState<MovementFormScreen> {
   String? _budgetAlert(Movement movement) {
     if (movement.kind != MovementKind.expense || _data.budgets.isEmpty) return null;
     final now = DateTime.now();
-    final month = DateTime(movement.date.year, movement.date.month);
+    final cycle = ref.read(sessionProvider).monthCycle;
+    final period = cycle.of(movement.date);
+    final month = DateTime(period.year, period.month);
     final after = Ledger(
       _data.ledger.accounts.values,
       [
@@ -232,8 +234,8 @@ class _MovementFormScreenState extends ConsumerState<MovementFormScreen> {
     );
     String? message;
     for (final b in _data.budgets) {
-      final before = BudgetEngine.status(_data.ledger, b, month: month, today: now);
-      final next = BudgetEngine.status(after, b, month: month, today: now);
+      final before = BudgetEngine.status(_data.ledger, b, month: month, today: now, cycle: cycle);
+      final next = BudgetEngine.status(after, b, month: month, today: now, cycle: cycle);
       if (next.level.index > before.level.index && next.level.index >= BudgetLevel.warning.index) {
         final name = b.isGlobal ? 'global' : _data.category(b.categoryId)?.name ?? '';
         message = next.level == BudgetLevel.exceeded

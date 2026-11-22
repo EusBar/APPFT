@@ -354,3 +354,6 @@ class SessionController extends Notifier<SessionState> {
     state = const SessionState(status: SessionStatus.needsPin);
   }
 }
+
+/// Mês financeiro escolhido nas Definições (para widgets sem `ref`).
+MonthCycle monthCycleOf(ProviderContainer container) => container.read(sessionProvider).monthCycle;

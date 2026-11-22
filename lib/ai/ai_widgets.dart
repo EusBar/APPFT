@@ -660,7 +660,15 @@ class _InsightCarouselState extends State<InsightCarousel> {
 // --- Tendências: curvas animadas ----------------------------------------------------
 
 class TrendChart extends StatefulWidget {
-  const TrendChart({super.key, required this.data, required this.currency, required this.discreet});
+  const TrendChart({
+    super.key,
+    required this.data,
+    required this.currency,
+    required this.discreet,
+    this.cycle = MonthCycle.calendar,
+  });
+
+  final MonthCycle cycle;
 
   final FinanceData data;
   final Currency currency;
@@ -679,7 +687,7 @@ class _TrendChartState extends State<TrendChart> {
     final theme = Theme.of(context);
     final colors = theme.extension<FtColors>()!;
     final muted = theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
-    final months = TrendsEngine.months(widget.data.ledger, widget.currency, today: DateTime.now());
+    final months = TrendsEngine.months(widget.data.ledger, widget.currency, today: DateTime.now(), cycle: widget.cycle);
     final empty = months.every((m) => m.income.isZero && m.expense.isZero);
     final sel = _selected ?? months.length - 1;
     final m = months[sel];

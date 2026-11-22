@@ -92,20 +92,27 @@ class _AiViewState extends ConsumerState<AiView> {
     final today = DateTime.now();
     final session = ref.watch(sessionProvider);
     final currency = session.profile?.mainCurrency ?? Currency.aoa;
-    final alerts = AiGuard.scan(data.ledger, today: today, dismissed: _dismissed);
+    final cycle = session.monthCycle;
+    final period = cycle.of(today);
+    final alerts = AiGuard.scan(data.ledger, today: today, dismissed: _dismissed, cycle: cycle);
     final insights = TrendsEngine.insights(
       data.ledger,
       currency,
       today: today,
       categoryName: (id) => data.category(id)?.name ?? 'Outros',
+      cycle: cycle,
     );
     final pulse = FinancialPulse.compute(
       data.ledger,
       currency,
       today: today,
-      availableMinor: data.ledger.available(today: today, horizon: session.horizon)[currency]?.minor ?? 0,
+      cycle: cycle,
+      availableMinor:
+          data.ledger.available(today: today, horizon: session.horizon, cycle: cycle)[currency]?.minor ?? 0,
       budgetPercents: [
-        for (final b in data.budgets) BudgetEngine.status(data.ledger, b, month: today, today: today).percent,
+        for (final b in data.budgets)
+          BudgetEngine.status(data.ledger, b, month: DateTime(period.year, period.month), today: today, cycle: cycle)
+              .percent,
       ],
     );
 
@@ -149,6 +156,7 @@ class _AiViewState extends ConsumerState<AiView> {
               goals: widget.data.goals,
               contributions: widget.data.contributions,
               horizon: ref.read(sessionProvider).horizon,
+              cycle: ref.read(sessionProvider).monthCycle,
             ),
           ),
           ),
@@ -169,7 +177,7 @@ class _AiViewState extends ConsumerState<AiView> {
           child: PremiumGate(
             feature: PremiumFeature.trends,
             teaser: 'Curvas de 6 meses e o detalhe de cada mês.',
-            child: TrendChart(data: data, currency: currency, discreet: widget.discreet),
+            child: TrendChart(data: data, currency: currency, discreet: widget.discreet, cycle: cycle),
           ),
         ),
         section('Registo rápido', Icons.bolt_rounded),

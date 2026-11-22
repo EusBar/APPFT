@@ -1,4 +1,5 @@
 import 'money.dart';
+import 'month_cycle.dart';
 
 /// Estado de um compromisso (secção 6).
 enum CommitmentStatus {
@@ -177,11 +178,12 @@ enum AvailableHorizon {
         orElse: () => AvailableHorizon.endOfMonth,
       );
 
-  /// Último dia (incluído) do horizonte a contar de [today].
-  DateTime end(DateTime today) {
+  /// Último dia (incluído) do horizonte a contar de [today]. "Fim do mês" é o
+  /// fim do mês financeiro em [cycle] (ex.: a véspera do dia do salário).
+  DateTime end(DateTime today, {MonthCycle cycle = MonthCycle.calendar}) {
     final t = DateTime(today.year, today.month, today.day);
     return switch (this) {
-      AvailableHorizon.endOfMonth => DateTime(t.year, t.month + 1, 0),
+      AvailableHorizon.endOfMonth => cycle.of(t).to,
       AvailableHorizon.days7 => DateTime(t.year, t.month, t.day + 7),
       AvailableHorizon.days30 => DateTime(t.year, t.month, t.day + 30),
       AvailableHorizon.days90 => DateTime(t.year, t.month, t.day + 90),

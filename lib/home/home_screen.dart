@@ -437,7 +437,7 @@ class _AvailableCard extends ConsumerWidget {
               ListTile(
                 leading: Icon(h == horizon ? Icons.radio_button_checked : Icons.radio_button_off),
                 title: Text(horizonLabel(h)),
-                trailing: Text('até ${shortDate(h.end(today))}'),
+                trailing: Text('até ${shortDate(h.end(today, cycle: ref.read(sessionProvider).monthCycle))}'),
                 onTap: () => Navigator.of(context).pop(h),
               ),
           ],
@@ -451,8 +451,9 @@ class _AvailableCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colors = theme.extension<FtColors>()!;
-    final available = ledger.available(today: today, horizon: horizon);
-    final committed = ledger.committed(today: today, horizon: horizon);
+    final cycle = ref.watch(sessionProvider.select((s) => s.monthCycle));
+    final available = ledger.available(today: today, horizon: horizon, cycle: cycle);
+    final committed = ledger.committed(today: today, horizon: horizon, cycle: cycle);
     final booked = ledger.balances(availableOnly: true);
     final total = ledger.balances();
     final muted = theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
@@ -477,7 +478,7 @@ class _AvailableCard extends ConsumerWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('até ${shortDate(horizon.end(today))}', style: theme.textTheme.labelMedium),
+                      Text('até ${shortDate(horizon.end(today, cycle: cycle))}', style: theme.textTheme.labelMedium),
                       const Icon(Icons.expand_more, size: 16),
                     ],
                   ),

@@ -3,6 +3,7 @@ import 'category.dart';
 import 'commitment.dart';
 import 'currency.dart';
 import 'money.dart';
+import 'month_cycle.dart';
 import 'movement.dart';
 
 /// Motivo pelo qual um movimento novo é recusado.
@@ -219,8 +220,12 @@ class Ledger {
 
   /// Total dos compromissos pendentes que reduzem o disponível até ao fim do
   /// horizonte (os atrasados incluídos), por moeda.
-  Map<Currency, Money> committed({required DateTime today, required AvailableHorizon horizon}) {
-    final end = horizon.end(today);
+  Map<Currency, Money> committed({
+    required DateTime today,
+    required AvailableHorizon horizon,
+    MonthCycle cycle = MonthCycle.calendar,
+  }) {
+    final end = horizon.end(today, cycle: cycle);
     final totals = <Currency, Money>{};
     for (final c in pending()) {
       if (c.dueDate.isAfter(end)) continue;
@@ -234,9 +239,13 @@ class Ledger {
 
   /// Saldo disponível = saldos das contas incluídas − compromissos pendentes
   /// até ao horizonte. Por moeda: sem taxa de câmbio, nunca se misturam.
-  Map<Currency, Money> available({required DateTime today, required AvailableHorizon horizon}) {
+  Map<Currency, Money> available({
+    required DateTime today,
+    required AvailableHorizon horizon,
+    MonthCycle cycle = MonthCycle.calendar,
+  }) {
     final totals = Map.of(balances(availableOnly: true));
-    committed(today: today, horizon: horizon).forEach((cur, amount) {
+    committed(today: today, horizon: horizon, cycle: cycle).forEach((cur, amount) {
       totals[cur] = (totals[cur] ?? Money.zero(cur)) - amount;
     });
     return totals;

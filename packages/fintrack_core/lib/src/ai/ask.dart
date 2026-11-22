@@ -3,6 +3,7 @@ import '../commitment.dart';
 import '../currency.dart';
 import '../ledger.dart';
 import '../money.dart';
+import '../month_cycle.dart';
 import '../movement.dart';
 import '../planning.dart';
 import 'insights.dart';
@@ -56,7 +57,11 @@ class AskEngine {
     this.goals = const [],
     this.contributions = const [],
     this.horizon = AvailableHorizon.endOfMonth,
+    this.cycle = MonthCycle.calendar,
   });
+
+  /// Mês financeiro do utilizador ("este mês", "mês passado", "outubro").
+  final MonthCycle cycle;
 
   final Ledger ledger;
   final List<Category> categories;
@@ -100,18 +105,18 @@ class AskEngine {
 
   AskPeriod period(String q) {
     final t = _t;
+    final current = cycle.of(t);
     if (q.contains('mes passado') || q.contains('ultimo mes') || q.contains('mes anterior')) {
-      final s = DateTime(t.year, t.month - 1, 1);
-      return AskPeriod(s, DateTime(s.year, s.month + 1, 0), 'no mês passado');
+      final p = current.previous(cycle);
+      return AskPeriod(p.from, p.to, 'no mês passado');
     }
     for (var i = 0; i < 12; i++) {
       if (RegExp('\\b${_months[i]}\\b').hasMatch(q)) {
-        var year = t.year;
-        if (i + 1 > t.month) year -= 1; // um mês ainda por vir é do ano passado
-        final s = DateTime(year, i + 1, 1);
-        final e = DateTime(year, i + 2, 0);
+        var year = current.year;
+        if (i + 1 > current.month) year -= 1; // um mês ainda por vir é do ano passado
+        final p = cycle.byLabel(year, i + 1);
         final label = 'em ${_months[i] == 'marco' ? 'março' : _months[i]}${year != t.year ? ' de $year' : ''}';
-        return AskPeriod(s, e.isAfter(t) ? t : e, label);
+        return AskPeriod(p.from, p.to.isAfter(t) ? t : p.to, label);
       }
     }
     if (q.contains('hoje')) return AskPeriod(t, t, 'hoje');
@@ -126,7 +131,7 @@ class AskEngine {
     if (RegExp(r'\bano\b').hasMatch(q)) {
       return AskPeriod(DateTime(t.year, 1, 1), t, 'este ano');
     }
-    return AskPeriod(DateTime(t.year, t.month, 1), t, 'este mês');
+    return AskPeriod(current.from, t, 'este mês');
   }
 
   /// Categoria mencionada (pelo nome, ou pelo início das palavras).
@@ -227,10 +232,13 @@ class AskEngine {
 
   AskAnswer _compare() {
     final t = _t;
-    final s = DateTime(t.year, t.month, 1);
-    final ps = DateTime(t.year, t.month - 1, 1);
-    final pe = DateTime(ps.year, ps.month + 1, 0);
-    final same = DateTime(ps.year, ps.month, t.day > pe.day ? pe.day : t.day);
+    final cur = cycle.of(t);
+    final prev = cur.previous(cycle);
+    final s = cur.from;
+    final ps = prev.from;
+    final elapsed = t.difference(s).inDays;
+    final sameDay = ps.add(Duration(days: elapsed));
+    final same = sameDay.isAfter(prev.to) ? prev.to : sameDay;
     final now = TrendsEngine.total(ledger, MovementKind.expense, currency, from: s, to: t);
     final before = TrendsEngine.total(ledger, MovementKind.expense, currency, from: ps, to: same);
     if (before.isZero) {
@@ -249,7 +257,7 @@ class AskEngine {
       lines.add('${_name(id)}: ${d > 0 ? 'mais' : 'menos'} ${_fmt(Money(d.abs(), currency))}');
     }
     return AskAnswer(
-      'Até dia ${t.day}, gastou ${_fmt(now)}: $how no mesmo período do mês passado (${_fmt(before)}).',
+      'Até hoje, gastou ${_fmt(now)}: $how no mesmo ponto do mês passado (${_fmt(before)}).',
       lines: lines,
       headline: now,
       headlineLabel: change == 0 ? 'Igual ao mês passado' : change > 0 ? '+$change% face ao mês passado' : '$change% face ao mês passado',
@@ -258,8 +266,8 @@ class AskEngine {
   }
 
   AskAnswer _available() {
-    final av = ledger.available(today: _t, horizon: horizon)[currency];
-    final committed = ledger.committed(today: _t, horizon: horizon)[currency];
+    final av = ledger.available(today: _t, horizon: horizon, cycle: cycle)[currency];
+    final committed = ledger.committed(today: _t, horizon: horizon, cycle: cycle)[currency];
     if (av == null) return const AskAnswer('Não há contas nesta moeda para calcular o disponível.');
     return AskAnswer(
       av.minor >= 0
@@ -298,7 +306,7 @@ class AskEngine {
     final t = _t;
     final pending = ledger.pending();
     if (pending.isEmpty) return const AskAnswer('Não tem compromissos por pagar.');
-    final end = DateTime(t.year, t.month + 1, 0);
+    final end = cycle.of(t).to;
     final soon = [for (final c in pending) if (!c.dueDate.isAfter(end)) c];
     final late = [for (final c in pending) if (c.dueDate.isBefore(t)) c];
     final sum = soon.where((c) => c.amount.currency == currency).fold<int>(0, (s, c) => s + c.amount.minor);
@@ -335,7 +343,8 @@ class AskEngine {
     final lines = <String>[];
     var over = 0;
     for (final b in budgets) {
-      final s = BudgetEngine.status(ledger, b, month: _t, today: _t);
+      final cur = cycle.of(_t);
+      final s = BudgetEngine.status(ledger, b, month: DateTime(cur.year, cur.month), today: _t, cycle: cycle);
       if (s.percent >= 100) over++;
       final name = b.categoryId == null ? 'Global' : _name(b.categoryId!);
       lines.add('$name: ${s.percent}% (${_fmt(s.spent)} de ${_fmt(s.limit)})');
@@ -347,7 +356,7 @@ class AskEngine {
   }
 
   AskAnswer _summary() {
-    final insights = TrendsEngine.insights(ledger, currency, today: _t, categoryName: _name);
+    final insights = TrendsEngine.insights(ledger, currency, today: _t, categoryName: _name, cycle: cycle);
     if (insights.isEmpty) return const AskAnswer('Ainda não há movimentos suficientes para uma análise. Continue a registar.');
     return AskAnswer(insights.first.title, lines: [for (final i in insights) '${i.title}. ${i.detail}']);
   }

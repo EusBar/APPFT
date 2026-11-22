@@ -1,6 +1,7 @@
 import 'category.dart';
 import 'ledger.dart';
 import 'money.dart';
+import 'month_cycle.dart';
 import 'movement.dart';
 import 'names.dart';
 
@@ -83,9 +84,10 @@ class BudgetStatus {
 class BudgetEngine {
   /// Despesas do mês na moeda do orçamento, estornos incluídos.
   /// Transferências próprias nunca contam.
-  static Money spent(Ledger ledger, Budget b, DateTime month) {
-    final start = DateTime(month.year, month.month);
-    final end = DateTime(month.year, month.month + 1, 0);
+  static Money spent(Ledger ledger, Budget b, DateTime month, {MonthCycle cycle = MonthCycle.calendar}) {
+    final period = cycle.byLabel(month.year, month.month);
+    final start = period.from;
+    final end = period.to;
     var minor = 0;
     for (final m in ledger.movements) {
       if (m.kind != MovementKind.expense) continue;
@@ -99,7 +101,15 @@ class BudgetEngine {
     return Money(minor, b.amount.currency);
   }
 
-  static BudgetStatus status(Ledger ledger, Budget b, {required DateTime month, required DateTime today}) {
+  /// [month] é o nome do mês financeiro (ano e mês); com [cycle] fora do
+  /// calendário, o período vai do dia de início à véspera do mês seguinte.
+  static BudgetStatus status(
+    Ledger ledger,
+    Budget b, {
+    required DateTime month,
+    required DateTime today,
+    MonthCycle cycle = MonthCycle.calendar,
+  }) {
     final m = DateTime(month.year, month.month);
     var limit = b.amount;
     if (b.carryOver) {
@@ -107,16 +117,18 @@ class BudgetEngine {
       var cursor = b.startMonth;
       var carry = 0;
       while (cursor.isBefore(m)) {
-        carry += b.amount.minor - spent(ledger, b, cursor).minor;
+        carry += b.amount.minor - spent(ledger, b, cursor, cycle: cycle).minor;
         cursor = DateTime(cursor.year, cursor.month + 1);
       }
       limit = Money(b.amount.minor + carry, b.amount.currency);
     }
-    final used = spent(ledger, b, m);
+    final used = spent(ledger, b, m, cycle: cycle);
     Money? projected;
-    if (today.year == m.year && today.month == m.month) {
-      final days = DateTime(m.year, m.month + 1, 0).day;
-      projected = Money((used.minor * days) ~/ today.day, used.currency);
+    final period = cycle.byLabel(m.year, m.month);
+    if (period.contains(today)) {
+      final t = DateTime(today.year, today.month, today.day);
+      final elapsed = t.difference(period.from).inDays + 1;
+      projected = Money((used.minor * period.days) ~/ elapsed, used.currency);
     }
     return BudgetStatus(budget: b, limit: limit, spent: used, projected: projected);
   }

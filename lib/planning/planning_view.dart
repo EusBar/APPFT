@@ -1,5 +1,6 @@
 import 'package:fintrack_core/fintrack_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../design/tokens.dart';
 import '../finance/finance_data.dart';
@@ -7,6 +8,7 @@ import 'budgets_view.dart';
 import 'commitments_view.dart';
 import 'goals_view.dart';
 import 'kixikila_view.dart';
+import '../security/session.dart';
 
 enum PlanSection { commitments, budgets, goals, kixikila }
 
@@ -82,7 +84,7 @@ class PlanSignal {
   final int level;
 }
 
-PlanSignal planSignal(FinanceData data, PlanSection s, DateTime now) {
+PlanSignal planSignal(FinanceData data, PlanSection s, DateTime now, {MonthCycle cycle = MonthCycle.calendar}) {
   final today = DateTime(now.year, now.month, now.day);
   final ledger = data.ledger;
   switch (s) {
@@ -96,8 +98,11 @@ PlanSignal planSignal(FinanceData data, PlanSection s, DateTime now) {
       return PlanSignal('${pending.length} pendente${pending.length == 1 ? '' : 's'}', 1);
     case PlanSection.budgets:
       if (data.budgets.isEmpty) return const PlanSignal('Definir', 0);
-      final month = DateTime(now.year, now.month);
-      final statuses = [for (final b in data.budgets) BudgetEngine.status(ledger, b, month: month, today: now)];
+      final p = cycle.of(now);
+      final month = DateTime(p.year, p.month);
+      final statuses = [
+        for (final b in data.budgets) BudgetEngine.status(ledger, b, month: month, today: now, cycle: cycle),
+      ];
       final over = statuses.where((x) => x.level == BudgetLevel.exceeded).length;
       if (over > 0) return PlanSignal('$over ultrapassado${over == 1 ? '' : 's'}', 3);
       final near = statuses.where((x) => x.level == BudgetLevel.warning).length;
@@ -175,7 +180,7 @@ class PlanningSummaryCard extends StatelessWidget {
             children: [
               for (final s in PlanSection.values)
                 Builder(builder: (context) {
-                  final signal = planSignal(data, s, now);
+                  final signal = planSignal(data, s, now, cycle: monthCycleOf(ProviderScope.containerOf(context)));
                   return InkWell(
                     borderRadius: BorderRadius.circular(FtRadius.md),
                     onTap: () => onOpen(s),

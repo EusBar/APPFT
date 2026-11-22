@@ -1,6 +1,7 @@
 import '../commitment.dart';
 import '../ledger.dart';
 import '../money.dart';
+import '../month_cycle.dart';
 import '../movement.dart';
 
 enum GuardKind { duplicate, unusualAmount, availableNegative }
@@ -42,6 +43,7 @@ class AiGuard {
     Ledger ledger, {
     required DateTime today,
     Set<String> dismissed = const {},
+    MonthCycle cycle = MonthCycle.calendar,
   }) {
     final alerts = <GuardAlert>[];
     final t = DateTime(today.year, today.month, today.day);
@@ -96,7 +98,7 @@ class AiGuard {
     }
 
     // 3. Risco de saldo disponível negativo até ao fim do mês.
-    ledger.available(today: t, horizon: AvailableHorizon.endOfMonth).forEach((currency, value) {
+    ledger.available(today: t, horizon: AvailableHorizon.endOfMonth, cycle: cycle).forEach((currency, value) {
       if (value.isNegative) {
         alerts.add(GuardAlert(
           id: 'neg:${currency.code}:${t.year}-${t.month}',
