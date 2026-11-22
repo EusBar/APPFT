@@ -5,7 +5,7 @@ import '../design/labels.dart';
 import '../design/plate.dart';
 import '../design/tokens.dart';
 import '../importing/import_screen.dart';
-import '../reports/report_screen.dart';
+import '../reports/months_screen.dart';
 import 'finance_data.dart';
 import 'movement_tile.dart';
 
@@ -305,10 +305,11 @@ class _MovementsViewState extends State<MovementsView> {
           spacing: FtSpace.sm,
           children: [
             TextButton.icon(
-              icon: const Icon(Icons.insights_outlined, size: 18),
-              label: const Text('Relatórios'),
+              key: const Key('open-months'),
+              icon: const Icon(Icons.calendar_month_outlined, size: 18),
+              label: const Text('Resumos mensais'),
               onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => const ReportScreen()),
+                MaterialPageRoute<void>(builder: (_) => const MonthsScreen()),
               ),
             ),
             TextButton.icon(

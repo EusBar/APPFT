@@ -729,6 +729,35 @@ void main() {
     expect(find.text('Olá, Eusébio'), findsOneWidget);
   });
 
+  testWidgets('mês financeiro a partir do dia do salário e resumos mensais', (tester) async {
+    await setUpUser(tester);
+    await tester.tap(find.byTooltip('Definições'));
+    await tester.pumpAndSettle();
+    final tile = find.byKey(const Key('settings-month'));
+    await tester.scrollUntilVisible(tile, 200, scrollable: find.byType(Scrollable).first);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Calendário'), findsOneWidget);
+    await tester.tap(tile);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('cycle-day')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('cycle-day-picker')), findsOneWidget);
+    await tester.tap(find.text('Guardar'));
+    await tester.pumpAndSettle();
+    expect(secrets.values['ft.settings.monthStart'], '25');
+    expect(find.textContaining('Começa no dia 25'), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Movimentos'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('open-months')));
+    await tester.pumpAndSettle();
+    expect(find.text('Resumos mensais'), findsOneWidget);
+    expect(find.text('Em curso'), findsOneWidget);
+    expect(find.byKey(const Key('export-year')), findsOneWidget);
+  });
+
   testWidgets('FINTRACK AI: Smart Entry prepara, o utilizador revê e grava', (tester) async {
     await setUpUser(tester);
     await tester.tap(find.text('IA'));

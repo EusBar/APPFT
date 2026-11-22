@@ -97,7 +97,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// Reagenda os lembretes sempre que os dados mudam, se autorizados.
   Future<void> _syncReminders(FinanceData data) async {
     final allowed = await ref.read(secretStoreProvider).read(Consent.notifications.key) == '1';
-    if (allowed) await ref.read(remindersProvider).reschedule(data);
+    if (allowed) {
+      await ref.read(remindersProvider).reschedule(data, cycle: ref.read(sessionProvider).monthCycle);
+    }
   }
 
   @override
@@ -364,7 +366,13 @@ class _Overview extends ConsumerWidget {
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute<void>(builder: (_) => ReportScreen(initialMonth: today)),
           ),
-          child: MonthFlowCard(ledger: ledger, today: today, mainCurrency: mainCurrency, discreet: discreet),
+          child: MonthFlowCard(
+            ledger: ledger,
+            today: today,
+            mainCurrency: mainCurrency,
+            discreet: discreet,
+            cycle: ref.watch(sessionProvider.select((s) => s.monthCycle)),
+          ),
         ),
         const SizedBox(height: FtSpace.md),
         PlanningSummaryCard(data: data, onOpen: onOpenPlanning),

@@ -14,7 +14,8 @@ enum PremiumFeature {
   pulse('Pulso financeiro'),
   trends('Tendências e observações'),
   smartEntry('Smart Entry'),
-  pdf('Relatórios em PDF');
+  pdf('Relatórios em PDF'),
+  excel('Exportação em Excel');
 
   const PremiumFeature(this.label);
   final String label;

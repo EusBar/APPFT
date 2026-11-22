@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:fintrack_core/fintrack_core.dart';
@@ -12,9 +11,14 @@ import '../finance/finance_data.dart';
 import '../security/session.dart';
 import '../premium/paywall_screen.dart';
 import '../premium/premium.dart';
+import 'month_export.dart';
 import 'pdf_report.dart';
 
-/// Relatório mensal com indicadores, categorias e exportação PDF/CSV.
+/// Resumo de um mês financeiro: indicadores, categorias e exportação em PDF
+/// e Excel. Segue o "mês financeiro" escolhido nas Definições.
+
+const xlsxMime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
 class ReportScreen extends ConsumerStatefulWidget {
   const ReportScreen({super.key, this.initialMonth});
 
@@ -25,29 +29,34 @@ class ReportScreen extends ConsumerStatefulWidget {
 }
 
 class _ReportScreenState extends ConsumerState<ReportScreen> {
-  late DateTime _month;
+  /// Mês financeiro mostrado (pelo nome: ano e mês).
+  late DateTime _label;
   bool _busy = false;
 
   @override
   void initState() {
     super.initState();
-    final m = widget.initialMonth ?? DateTime.now();
-    _month = DateTime(m.year, m.month);
+    final p = ref.read(sessionProvider).monthCycle.of(widget.initialMonth ?? DateTime.now());
+    _label = DateTime(p.year, p.month);
   }
 
+  MonthCycle get _cycle => ref.read(sessionProvider).monthCycle;
+  FinancialMonth get _period => _cycle.byLabel(_label.year, _label.month);
+
+  DateTime get _today {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  /// Fim do período, sem passar de hoje no mês em curso.
   DateTime get _end {
-    final last = DateTime(_month.year, _month.month + 1, 0);
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    return last.isAfter(today) && !_month.isAfter(today) ? today : last;
+    final p = _period;
+    return p.to.isAfter(_today) && !p.from.isAfter(_today) ? _today : p.to;
   }
 
-  bool get _isCurrentOrFuture {
-    final now = DateTime.now();
-    return !DateTime(now.year, now.month).isAfter(_month);
-  }
+  bool get _isCurrentOrFuture => !_period.to.isBefore(_today);
 
-  String get _fileStem => 'FINTRACK-${_month.year}-${_month.month.toString().padLeft(2, '0')}';
+  String get _fileStem => 'FINTRACK-${_label.year}-${_label.month.toString().padLeft(2, '0')}';
 
   Future<bool> _confirmExport(String what) async {
     final ok = await showDialog<bool>(
@@ -100,20 +109,28 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
     }
   }
 
-  Future<void> _exportCsv(FinanceData data, PeriodReport report) async {
-    if (!await _confirmExport('CSV')) return;
+  Future<void> _exportExcel(FinanceData data) async {
+    if (!ref.read(premiumProvider).unlocked) {
+      await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => const PaywallScreen(feature: PremiumFeature.excel),
+      ));
+      return;
+    }
+    if (!await _confirmExport('Excel')) return;
     setState(() => _busy = true);
     try {
-      final csv = MovementCsv.encode(
-        report.movements,
+      final bytes = buildMonthsWorkbook(
+        ledger: data.ledger,
+        months: [_period],
+        cycle: _cycle,
         categoryName: (id) => data.category(id)?.name ?? '',
         accountName: (id) => data.account(id)?.name ?? '',
-        kindName: movementKindLabel,
+        today: _today,
+        ownerName: ref.read(sessionProvider).profile?.name,
       );
-      // BOM UTF-8: o Excel reconhece os acentos.
-      await _share([0xEF, 0xBB, 0xBF, ...utf8.encode(csv)], 'text/csv', '$_fileStem.csv');
+      await _share(bytes, xlsxMime, '$_fileStem.xlsx');
     } catch (_) {
-      _snack('Não foi possível gerar o CSV.');
+      _snack('Não foi possível gerar o Excel.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -135,7 +152,8 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, __) => const Center(child: Text('Não foi possível ler os dados.')),
         data: (data) {
-          final report = PeriodReport.build(data.ledger, from: _month, to: _end);
+          final period = _period;
+          final report = PeriodReport.build(data.ledger, from: period.from, to: _end);
           String money(Money m) => amountText(m, discreet: discreet);
           return ListView(
             padding: const EdgeInsets.fromLTRB(FtSpace.lg, FtSpace.sm, FtSpace.lg, FtSpace.xl),
@@ -145,21 +163,25 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                   IconButton(
                     tooltip: 'Mês anterior',
                     icon: const Icon(Icons.chevron_left),
-                    onPressed: () => setState(() => _month = DateTime(_month.year, _month.month - 1)),
+                    onPressed: () => setState(() => _label = DateTime(_label.year, _label.month - 1)),
                   ),
                   Expanded(
-                    child: Text(
-                      '${monthName(_month.month)} de ${_month.year}',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.titleMedium,
-                    ),
+                    child: Column(children: [
+                      Text(monthLabel(period), textAlign: TextAlign.center, style: theme.textTheme.titleMedium),
+                      if (!_cycle.isCalendar)
+                        Text(
+                          monthRange(period),
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                        ),
+                    ]),
                   ),
                   IconButton(
                     tooltip: 'Mês seguinte',
                     icon: const Icon(Icons.chevron_right),
                     onPressed: _isCurrentOrFuture
                         ? null
-                        : () => setState(() => _month = DateTime(_month.year, _month.month + 1)),
+                        : () => setState(() => _label = DateTime(_label.year, _label.month + 1)),
                   ),
                 ],
               ),
@@ -219,9 +241,10 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
               ),
               const SizedBox(height: FtSpace.sm),
               OutlinedButton.icon(
+                key: const Key('export-excel'),
                 icon: const Icon(Icons.table_chart_outlined),
-                label: const Text('Exportar CSV (Excel)'),
-                onPressed: _busy ? null : () => _exportCsv(data, report),
+                label: const Text('Exportar Excel'),
+                onPressed: _busy ? null : () => _exportExcel(data),
               ),
             ],
           );

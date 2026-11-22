@@ -27,7 +27,7 @@ Valores marcados como **estimativa** (por exemplo, a previsão de consumo de um 
 ## Planos e pagamentos
 
 - As funções essenciais e toda a componente de segurança (PIN, biometria, cifra, AI Guard, cópias de segurança e sincronização) são **gratuitas**.
-- O **FINTRACK Premium** inclui o "Pergunte ao FINTRACK", o pulso financeiro, as tendências e observações, o Smart Entry e os relatórios em PDF.
+- O **FINTRACK Premium** inclui o "Pergunte ao FINTRACK", o pulso financeiro, as tendências e observações, o Smart Entry e os relatórios em PDF e Excel.
 - Cada instalação tem uma **experiência grátis de 14 dias** com todas as funções Premium.
 - A subscrição (mensal ou anual) é feita na Google Play ou na App Store, com o preço apresentado pela loja antes da compra. **Renova automaticamente** até a cancelar nas subscrições da loja; o cancelamento produz efeito no fim do período pago.
 - A subscrição fica ligada à sua conta FINTRACK e é confirmada pelo nosso servidor junto da loja.

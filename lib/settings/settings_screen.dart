@@ -172,6 +172,15 @@ class SettingsScreen extends ConsumerWidget {
             },
           ),
           const Divider(),
+          ListTile(
+            key: const Key('settings-month'),
+            leading: const Icon(Icons.date_range_outlined),
+            title: const Text('Mês financeiro'),
+            subtitle: Text(monthCycleSummary(ref.watch(sessionProvider.select((s) => s.monthCycle)))),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => chooseMonthCycle(context, ref),
+          ),
+          const Divider(),
           Padding(
             padding: const EdgeInsets.fromLTRB(FtSpace.md, FtSpace.md, FtSpace.md, FtSpace.xs),
             child: Text('Horizonte do saldo disponível', style: theme.textTheme.titleSmall),
@@ -389,7 +398,7 @@ class _PrivacySection extends ConsumerWidget {
     }
     await consent.set(Consent.notifications, true);
     final data = ref.read(financeProvider).valueOrNull;
-    if (data != null) await reminders.reschedule(data);
+    if (data != null) await reminders.reschedule(data, cycle: ref.read(sessionProvider).monthCycle);
     messenger.showSnackBar(const SnackBar(content: Text('Lembretes ativados.')));
   }
 
@@ -451,4 +460,81 @@ class _PrivacySection extends ConsumerWidget {
       ],
     );
   }
+}
+
+/// Resumo do mês financeiro em uso, com um exemplo concreto.
+String monthCycleSummary(MonthCycle c) {
+  if (c.isCalendar) return 'Calendário: do dia 1 ao último dia do mês';
+  final m = c.of(DateTime.now());
+  String d(DateTime x) => '${x.day} ${monthName(x.month).substring(0, 3).toLowerCase()}';
+  return 'Começa no dia ${c.startDay}: ${d(m.from)} a ${d(m.to)} = ${monthName(m.month).toLowerCase()}';
+}
+
+/// Escolher o mês financeiro: calendário ou a partir de um dia (ex.: salário).
+Future<void> chooseMonthCycle(BuildContext context, WidgetRef ref) async {
+  final current = ref.read(sessionProvider).monthCycle;
+  var calendar = current.isCalendar;
+  var day = current.isCalendar ? 25 : current.startDay;
+  final picked = await showDialog<int>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) {
+        final preview = MonthCycle(calendar ? 1 : day);
+        return AlertDialog(
+          title: const Text('Mês financeiro'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Escolha como quer ver cada mês nos resumos, no Início e nas exportações.'),
+                const SizedBox(height: FtSpace.sm),
+                RadioGroup<bool>(
+                  groupValue: calendar,
+                  onChanged: (v) => setState(() => calendar = v ?? true),
+                  child: const Column(children: [
+                    RadioListTile<bool>(
+                      key: Key('cycle-calendar'),
+                      value: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text('Mês de calendário'),
+                      subtitle: Text('Do dia 1 ao último dia.'),
+                    ),
+                    RadioListTile<bool>(
+                      key: Key('cycle-day'),
+                      value: false,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text('Começa num dia à escolha'),
+                      subtitle: Text('Por exemplo, no dia em que recebe o salário.'),
+                    ),
+                  ]),
+                ),
+                if (!calendar)
+                  Row(children: [
+                    const Text('Começa no dia'),
+                    const SizedBox(width: FtSpace.sm),
+                    DropdownButton<int>(
+                      key: const Key('cycle-day-picker'),
+                      value: day,
+                      items: [for (var d = 2; d <= 28; d++) DropdownMenuItem(value: d, child: Text('$d'))],
+                      onChanged: (v) => setState(() => day = v ?? day),
+                    ),
+                  ]),
+                const SizedBox(height: FtSpace.sm),
+                Text(
+                  monthCycleSummary(preview),
+                  style: Theme.of(ctx).textTheme.bodySmall?.copyWith(color: Theme.of(ctx).colorScheme.primary),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, calendar ? 1 : day), child: const Text('Guardar')),
+          ],
+        );
+      },
+    ),
+  );
+  if (picked != null) await ref.read(sessionProvider.notifier).setMonthStartDay(picked);
 }

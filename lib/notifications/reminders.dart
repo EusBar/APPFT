@@ -4,6 +4,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timezone/timezone.dart' as tz;
 
+import '../design/labels.dart';
 import '../finance/finance_data.dart';
 
 /// Um lembrete a agendar. O texto nunca leva valores.
@@ -15,7 +16,12 @@ class Reminder {
 
 /// Lembretes a partir dos dados: véspera e dia de cada compromisso pendente
 /// e o dia de cada contribuição da Kixikila, sempre às 9:00.
-List<Reminder> plannedReminders(FinanceData data, {required DateTime now, int max = 60}) {
+List<Reminder> plannedReminders(
+  FinanceData data, {
+  required DateTime now,
+  int max = 60,
+  MonthCycle cycle = MonthCycle.calendar,
+}) {
   final out = <Reminder>[];
   DateTime at9(DateTime d) => DateTime(d.year, d.month, d.day, 9);
   void add(DateTime when, String body) {
@@ -33,6 +39,16 @@ List<Reminder> plannedReminders(FinanceData data, {required DateTime now, int ma
     if (next != null) add(at9(g.roundDate(next)), 'Contribuição da Kixikila "${g.name}" é hoje.');
     if (!s.received) add(at9(s.myPayoutDate), 'Hoje é a sua vez de receber na Kixikila "${g.name}".');
   }
+  // No primeiro dia de cada mês financeiro: o resumo do mês que acabou.
+  // (Só se houver movimentos; sem valores no texto da notificação.)
+  if (data.ledger.active().isNotEmpty) {
+    var period = cycle.of(now);
+    for (var i = 0; i < 3; i++) {
+      final next = period.next(cycle);
+      add(at9(next.from), 'O seu resumo de ${monthName(period.month).toLowerCase()} está pronto.');
+      period = next;
+    }
+  }
   out.sort((a, b) => a.when.compareTo(b.when));
   return out.take(max).toList();
 }
@@ -40,7 +56,7 @@ List<Reminder> plannedReminders(FinanceData data, {required DateTime now, int ma
 abstract interface class Reminders {
   /// Pede a autorização do sistema. `true` se pode notificar.
   Future<bool> requestPermission();
-  Future<void> reschedule(FinanceData data);
+  Future<void> reschedule(FinanceData data, {MonthCycle cycle = MonthCycle.calendar});
   Future<void> cancelAll();
 }
 
@@ -88,10 +104,10 @@ class DeviceReminders implements Reminders {
   }
 
   @override
-  Future<void> reschedule(FinanceData data) async {
+  Future<void> reschedule(FinanceData data, {MonthCycle cycle = MonthCycle.calendar}) async {
     await _init();
     await _plugin.cancelAll();
-    final reminders = plannedReminders(data, now: DateTime.now());
+    final reminders = plannedReminders(data, now: DateTime.now(), cycle: cycle);
     for (final (i, r) in reminders.indexed) {
       await _plugin.zonedSchedule(
         id: i + 1,
@@ -123,9 +139,9 @@ class MemoryReminders implements Reminders {
   Future<bool> requestPermission() async => allow;
 
   @override
-  Future<void> reschedule(FinanceData data) async {
+  Future<void> reschedule(FinanceData data, {MonthCycle cycle = MonthCycle.calendar}) async {
     reschedules++;
-    scheduled = plannedReminders(data, now: DateTime.now());
+    scheduled = plannedReminders(data, now: DateTime.now(), cycle: cycle);
   }
 
   @override

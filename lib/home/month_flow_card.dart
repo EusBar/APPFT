@@ -13,7 +13,11 @@ class MonthFlowCard extends StatelessWidget {
     required this.today,
     required this.mainCurrency,
     required this.discreet,
+    this.cycle = MonthCycle.calendar,
   });
+
+  /// Mês financeiro escolhido nas Definições.
+  final MonthCycle cycle;
 
   final Ledger ledger;
   final DateTime today;
@@ -24,7 +28,8 @@ class MonthFlowCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final totals = ledger.totals(DateTime(today.year, today.month), today);
+    final period = cycle.of(today);
+    final totals = ledger.totals(period.from, today);
     final currencies = <Currency>{...totals.income.keys, ...totals.expense.keys};
     if (currencies.isEmpty) currencies.add(mainCurrency);
 
@@ -49,7 +54,7 @@ class MonthFlowCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'FLUXO DE ${monthName(today.month).toUpperCase()}',
+                  'FLUXO DE ${monthName(period.month).toUpperCase()}',
                   style: theme.textTheme.labelSmall?.copyWith(
                     letterSpacing: 1.6,
                     fontWeight: FontWeight.w700,

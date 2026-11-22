@@ -27,7 +27,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     (Icons.monitor_heart_outlined, 'Pulso financeiro', 'A nota do seu mês, com o porquê de cada ponto.'),
     (Icons.show_chart_rounded, 'Tendências e observações', 'Curvas de 6 meses, ritmo, projeções e alertas.'),
     (Icons.bolt_rounded, 'Smart Entry', 'Escreva ou cole o SMS do banco: o movimento prepara-se sozinho.'),
-    (Icons.picture_as_pdf_outlined, 'Relatórios em PDF', 'Relatórios do mês prontos a partilhar.'),
+    (Icons.picture_as_pdf_outlined, 'Relatórios em PDF e Excel', 'Cada mês e o ano inteiro, prontos a partilhar ou a guardar.'),
   ];
 
   @override

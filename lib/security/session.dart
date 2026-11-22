@@ -39,9 +39,13 @@ class SessionState {
     this.profile,
     this.biometricEnabled = false,
     this.horizon = AvailableHorizon.endOfMonth,
+    this.monthCycle = MonthCycle.calendar,
     this.signedOut = false,
     this.introDone = false,
   });
+
+  /// Como se divide o tempo em meses (calendário ou a partir de um dia).
+  final MonthCycle monthCycle;
 
   /// Primeira abertura: já passou pela vitrine (conta ou sem conta) e
   /// segue para o PIN.
@@ -75,6 +79,7 @@ class SessionState {
     bool clearProfile = false,
     bool? biometricEnabled,
     AvailableHorizon? horizon,
+    MonthCycle? monthCycle,
     bool? signedOut,
     bool? introDone,
   }) =>
@@ -85,6 +90,7 @@ class SessionState {
         profile: clearProfile ? null : profile ?? this.profile,
         biometricEnabled: biometricEnabled ?? this.biometricEnabled,
         horizon: horizon ?? this.horizon,
+        monthCycle: monthCycle ?? this.monthCycle,
         signedOut: signedOut ?? this.signedOut,
         introDone: introDone ?? this.introDone,
       );
@@ -98,6 +104,7 @@ class SessionController extends Notifier<SessionState> {
   static const _kAutoLock = 'ft.settings.autoLock';
   static const _kBiometric = 'ft.settings.biometric';
   static const _kHorizon = 'ft.settings.horizon';
+  static const _kMonthStart = 'ft.settings.monthStart';
   static const _kSignedOut = 'ft.signedOut';
 
   LocalStore? _store;
@@ -126,6 +133,7 @@ class SessionController extends Notifier<SessionState> {
       autoLock: autoLock,
       biometricEnabled: biometric,
       horizon: AvailableHorizon.fromCode(await secrets.read(_kHorizon)),
+      monthCycle: MonthCycle(int.tryParse(await secrets.read(_kMonthStart) ?? '') ?? 1),
     );
   }
 
@@ -324,6 +332,13 @@ class SessionController extends Notifier<SessionState> {
     state = state.copyWith(horizon: horizon);
   }
 
+  /// Dia em que começa o mês financeiro (1 = mês de calendário).
+  Future<void> setMonthStartDay(int day) async {
+    final cycle = MonthCycle(day);
+    await ref.read(secretStoreProvider).write(_kMonthStart, '${cycle.startDay}');
+    state = state.copyWith(monthCycle: cycle);
+  }
+
   /// Apaga o PIN, a chave e a base de dados deste dispositivo.
   Future<void> resetApp() async {
     final store = _store;
@@ -333,6 +348,7 @@ class SessionController extends Notifier<SessionState> {
     await ref.read(pinVaultProvider).reset();
     await ref.read(secretStoreProvider).delete(_kAutoLock);
     await ref.read(secretStoreProvider).delete(_kHorizon);
+    await ref.read(secretStoreProvider).delete(_kMonthStart);
     await ref.read(biometricKeyStoreProvider).clear();
     await ref.read(secretStoreProvider).delete(_kBiometric);
     state = const SessionState(status: SessionStatus.needsPin);
