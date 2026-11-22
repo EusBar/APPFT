@@ -232,13 +232,13 @@ class AskEngine {
 
   AskAnswer _compare() {
     final t = _t;
-    final cur = cycle.of(t);
-    final prev = cur.previous(cycle);
-    final s = cur.from;
-    final ps = prev.from;
+    final period = cycle.of(t);
+    final previous = period.previous(cycle);
+    final s = period.from;
+    final ps = previous.from;
     final elapsed = t.difference(s).inDays;
     final sameDay = ps.add(Duration(days: elapsed));
-    final same = sameDay.isAfter(prev.to) ? prev.to : sameDay;
+    final same = sameDay.isAfter(previous.to) ? previous.to : sameDay;
     final now = TrendsEngine.total(ledger, MovementKind.expense, currency, from: s, to: t);
     final before = TrendsEngine.total(ledger, MovementKind.expense, currency, from: ps, to: same);
     if (before.isZero) {
