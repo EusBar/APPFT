@@ -8,11 +8,13 @@ import 'xlsx_writer.dart';
 String _two(int n) => n.toString().padLeft(2, '0');
 String _d(DateTime d) => '${_two(d.day)}/${_two(d.month)}/${d.year}';
 
+String _cap(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+
 /// Nome curto de um mês financeiro ("Nov 2026").
-String shortMonthLabel(FinancialMonth m) => '${monthName(m.month).substring(0, 3)} ${m.year}';
+String shortMonthLabel(FinancialMonth m) => '${_cap(monthName(m.month).substring(0, 3))} ${m.year}';
 
 /// Nome completo ("Novembro de 2026").
-String monthLabel(FinancialMonth m) => '${monthName(m.month)} de ${m.year}';
+String monthLabel(FinancialMonth m) => '${_cap(monthName(m.month))} de ${m.year}';
 
 /// Datas do período ("25/10/2026 a 24/11/2026").
 String monthRange(FinancialMonth m) => '${_d(m.from)} a ${_d(m.to)}';
